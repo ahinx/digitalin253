@@ -71,6 +71,7 @@ return new class extends Migration {
             $table->string('magic_link_token')->unique();
             $table->enum('status', ['pending', 'paid', 'expired'])->default('pending');
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('order_items', function (Blueprint $table) {

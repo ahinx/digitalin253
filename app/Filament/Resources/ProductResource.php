@@ -17,7 +17,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Radio;
-use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Get;
 
 class ProductResource extends Resource
@@ -28,74 +28,133 @@ class ProductResource extends Resource
     {
         return $form
             ->schema([
-                Grid::make(2)->schema([
-                    TextInput::make('name')->required(),
-                    Select::make('type')
-                        ->options([
-                            'simple' => 'Simple',
-                            'variant' => 'Variant'
-                        ])->required()
-                        ->reactive(),
-                ]),
-
-                FileUpload::make('main_image')->directory('products/images')->image(),
-                Textarea::make('description')->columnSpanFull(),
-
-                TextInput::make('price')
-                    ->numeric()
-                    ->visible(fn(Get $get) => $get('type') === 'simple'),
-
-                TextInput::make('discount_price')
-                    ->numeric()
-                    ->visible(fn(Get $get) => $get('type') === 'simple'),
-
-                Radio::make('downloadable_type')
-                    ->options([
-                        'file' => 'File',
-                        'link' => 'Link'
-                    ])
-                    ->inline()
-                    ->required()
-                    ->reactive()
-                    ->visible(fn(Get $get) => $get('type') === 'simple'),
-
-                FileUpload::make('file_path')
-                    ->directory('downloads')
-                    ->label('Upload File')
-                    ->preserveFilenames()
-                    ->visible(fn(Get $get) => $get('type') === 'simple' && $get('downloadable_type') === 'file'),
-
-                TextInput::make('external_url')
-                    ->label('External Link')
-                    ->visible(fn(Get $get) => $get('type') === 'simple' && $get('downloadable_type') === 'link'),
-
-                Repeater::make('variants')
-                    ->relationship('variants')
-                    ->visible(fn(Get $get) => $get('type') === 'variant')
+                Section::make('Informasi Umum')
+                    ->description('Detail utama produk')
                     ->schema([
-                        TextInput::make('name')->required(),
-                        TextInput::make('price')->numeric()->required(),
-                        FileUpload::make('image')->directory('products/variants')->image(),
+                        Grid::make(2)->schema([
+                            TextInput::make('name')
+                                ->label('Nama Produk')
+                                ->required(),
+
+                            Select::make('type')
+                                ->options([
+                                    'simple' => 'Simple',
+                                    'variant' => 'Variant'
+                                ])
+                                ->required()
+                                ->reactive(),
+                        ]),
+
+                        FileUpload::make('main_image')
+                            ->label('Gambar Utama')
+                            ->directory('products/images')
+                            ->image()
+                            ->imageEditor()
+                            ->imageEditorAspectRatios([
+                                null,
+                                '16:9',
+                                '4:3',
+                                '1:1',
+                            ]),
+
+                        Textarea::make('description')
+                            ->label('Deskripsi')
+                            ->columnSpanFull(),
+                    ]),
+
+                Section::make('Harga')
+                    ->description('Harga hanya untuk produk simple')
+                    ->schema([
+                        Grid::make(2)->schema([
+                            TextInput::make('price')
+                                ->label('Harga')
+                                ->numeric()
+                                ->visible(fn(Get $get) => $get('type') === 'simple'),
+
+                            TextInput::make('discount_price')
+                                ->label('Harga Diskon')
+                                ->numeric()
+                                ->visible(fn(Get $get) => $get('type') === 'simple'),
+                        ]),
+                    ]),
+
+                Section::make('Download')
+                    ->description('Opsi download produk digital (untuk simple product)')
+                    ->schema([
                         Radio::make('downloadable_type')
+                            ->label('Tipe Unduhan')
                             ->options([
                                 'file' => 'File',
                                 'link' => 'Link'
-                            ])->inline()->required()->reactive(),
+                            ])
+                            ->inline()
+                            ->required()
+                            ->reactive()
+                            ->visible(fn(Get $get) => $get('type') === 'simple'),
+
                         FileUpload::make('file_path')
                             ->directory('downloads')
                             ->label('Upload File')
                             ->preserveFilenames()
-                            ->visible(fn(Get $get) => $get('downloadable_type') === 'file'),
+                            ->visible(fn(Get $get) => $get('type') === 'simple' && $get('downloadable_type') === 'file'),
+
                         TextInput::make('external_url')
                             ->label('External Link')
-                            ->visible(fn(Get $get) => $get('downloadable_type') === 'link'),
-                    ])
-                    ->defaultItems(1),
+                            ->visible(fn(Get $get) => $get('type') === 'simple' && $get('downloadable_type') === 'link'),
+                    ]),
 
-                TextInput::make('seo_title')->columnSpanFull(),
-                Textarea::make('seo_description')->columnSpanFull(),
-                TextInput::make('seo_keywords')->columnSpanFull(),
-                TextInput::make('seo_image_alt')->columnSpanFull(),
+                Section::make('Varian Produk')
+                    ->description('Hanya tampil jika produk bertipe variant')
+                    ->schema([
+                        Repeater::make('variants')
+                            ->relationship('variants')
+                            ->visible(fn(Get $get) => $get('type') === 'variant')
+                            ->schema([
+                                TextInput::make('name')->required(),
+                                TextInput::make('price')->numeric()->required(),
+
+                                FileUpload::make('image')
+                                    ->directory('products/variants')
+                                    ->image()
+                                    ->imageEditor()
+                                    ->imageEditorAspectRatios([
+                                        null,
+                                        '1:1',
+                                        '4:3'
+                                    ]),
+
+                                Radio::make('downloadable_type')
+                                    ->options([
+                                        'file' => 'File',
+                                        'link' => 'Link'
+                                    ])
+                                    ->inline()
+                                    ->required()
+                                    ->reactive(),
+
+                                FileUpload::make('file_path')
+                                    ->directory('downloads')
+                                    ->label('Upload File')
+                                    ->preserveFilenames()
+                                    ->visible(fn(Get $get) => $get('downloadable_type') === 'file'),
+
+                                TextInput::make('external_url')
+                                    ->label('External Link')
+                                    ->visible(fn(Get $get) => $get('downloadable_type') === 'link'),
+                            ])
+                            ->defaultItems(1),
+                    ]),
+
+                Section::make('SEO')
+                    ->description('Optimasi mesin pencari (SEO)')
+                    ->collapsible()
+                    ->collapsed()
+                    ->schema([
+                        TextInput::make('seo_title')->columnSpanFull(),
+                        Textarea::make('seo_description')->columnSpanFull(),
+                        TextInput::make('seo_keywords')->columnSpanFull(),
+                        TextInput::make('seo_image_alt')->columnSpanFull(),
+                    ]),
             ]);
     }
 
@@ -103,12 +162,54 @@ class ProductResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')->searchable(),
-                Tables\Columns\TextColumn::make('type'),
-                Tables\Columns\TextColumn::make('price')->money('IDR'),
-                Tables\Columns\TextColumn::make('created_at')->dateTime(),
-            ]);
+                Tables\Columns\ImageColumn::make('main_image')
+                    ->label('Gambar')
+                    ->circular()
+                    ->height(50)
+                    ->width(50),
+
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('type')
+                    ->label('Tipe')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('price')
+                    ->label('Harga')
+                    ->money('IDR')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Dibuat')
+                    ->dateTime()
+                    ->sortable(),
+            ])
+            ->filters([
+                Tables\Filters\TrashedFilter::make(), // Filter soft delete
+            ])
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\RestoreAction::make(), // Untuk soft delete
+                Tables\Actions\ForceDeleteAction::make(), // Hapus permanen
+            ])
+            ->bulkActions([
+                Tables\Actions\DeleteBulkAction::make(),
+                Tables\Actions\RestoreBulkAction::make(),
+                Tables\Actions\ForceDeleteBulkAction::make(),
+            ])
+            ->emptyStateActions([
+                Tables\Actions\CreateAction::make(),
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->paginated(true)
+            ->recordTitleAttribute('name')
+            ->query(Product::query()->withTrashed()); // Aktifkan soft delete
     }
+
 
     public static function getPages(): array
     {
