@@ -1,31 +1,48 @@
 <?php
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
+use App\Models\AppSetting;
+
+if (!function_exists('setting')) {
+    function setting(string $key, mixed $default = null): mixed
+    {
+        static $settings = null;
+
+        if ($settings === null) {
+            $settings = AppSetting::pluck('value', 'key')->toArray();
+        }
+
+        return $settings[$key] ?? $default;
+    }
+}
 
 if (!function_exists('appSettings')) {
     function appSettings(): array
     {
-        return Cache::rememberForever('app_settings', function () {
-            return DB::table('app_settings')
-                ->pluck('value', 'key')
-                ->toArray();
-        });
+        static $settings = null;
+
+        if ($settings === null) {
+            $settings = AppSetting::pluck('value', 'key')->toArray();
+        }
+
+        return $settings;
     }
 }
 
-if (!function_exists('settings')) {
+// ⬇️ Tambahkan fungsi ini ⬇️
+if (! function_exists('settings')) {
+    /**
+     * Simpan array [$key => $value] ke tabel app_settings.
+     */
     function settings(array $data): void
     {
         foreach ($data as $key => $value) {
-            DB::table('app_settings')->updateOrInsert(
-                ['key' => $key],
-                ['value' => is_array($value) ? json_encode($value) : $value]
+            AppSetting::updateOrCreate(
+                ['key'   => $key],
+                ['value' => $value],
             );
         }
 
-        // Hapus cache lama dan isi ulang
-        Cache::forget('app_settings');
-        appSettings();
+        // (opsional) kalau pakai cache:
+        cache()->forget('app_settings');
     }
 }

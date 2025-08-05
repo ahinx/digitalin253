@@ -31,8 +31,3 @@ Route::get('/thank-you', [ShopController::class, 'thankYou'])->name('shop.thanky
 
 // Magic link download
 Route::get('/magic-link/{token}', [MagicLinkController::class, 'handle'])->name('magic.link');
-
-
-Route::get('/test-settings', function () {
-    dd(appSettings('midtrans_client_key', 'default-value'));
-});
