@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken as BaseVerifyCsrfToken;
 use App\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Config;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,8 +23,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Paksa skema HTTPS di lingkungan lokal
         if (app()->environment('local')) {
-            URL::forceScheme('https'); // ⬅️ Tambahkan baris ini
+            URL::forceScheme('https');
         }
     }
 }

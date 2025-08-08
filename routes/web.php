@@ -31,3 +31,12 @@ Route::get('/thank-you', [ShopController::class, 'thankYou'])->name('shop.thanky
 
 // Magic link download
 Route::get('/magic-link/{token}', [MagicLinkController::class, 'handle'])->name('magic.link');
+
+
+Route::get('/payment/{order}', [ShopController::class, 'paymentLink'])->name('shop.paymentLink');
+
+// Rute baru untuk Lacak Pesanan
+Route::get('/track-order', [ShopController::class, 'trackOrder'])->name('shop.trackOrder');
+
+// Untuk memproses pencarian
+Route::post('/track-order', [ShopController::class, 'trackOrder'])->name('shop.trackOrder.post');

@@ -5,12 +5,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  {{-- <title>Digitalin - Etalase</title> --}}
-
   {{-- Judul dinamis: 'app_name_public' dengan fallback --}}
   <title>{{ setting('app_name_public', 'Digitalin - Etalase') }}</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
+  {{-- Anda bisa menambahkan link CSS kustom di sini jika ada --}}
 </head>
 
 <body class="bg-gray-100 flex flex-col min-h-screen">
@@ -21,7 +20,8 @@
       <nav class="space-x-6">
         <a href="{{ route('shop.index') }}" class="hover:text-blue-500">Home</a>
         <a href="{{ route('shop.cart') }}" class="hover:text-blue-500">Keranjang</a>
-        <a href="/track" class="hover:text-blue-500">Lacak Pesanan</a>
+        <a href="{{ route('shop.trackOrder') }}" class="hover:text-blue-500">Lacak Pesanan</a> {{-- Perbaikan:
+        Menggunakan route() --}}
       </nav>
     </div>
   </header>
@@ -46,7 +46,8 @@
       </svg>
       <span class="text-xs">Keranjang</span>
     </a>
-    <a href="/track" class="flex flex-col items-center text-gray-600 hover:text-blue-500">
+    <a href="{{ route('shop.trackOrder') }}" class="flex flex-col items-center text-gray-600 hover:text-blue-500"> {{--
+      Perbaikan: Menggunakan route() --}}
       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 018 0v2" />
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11a7 7 0 0114 0v6H5v-6z" />

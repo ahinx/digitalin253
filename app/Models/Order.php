@@ -16,6 +16,14 @@ class Order extends Model
         'email',
         'magic_link_token',
         'status',
+        'total_price',
+        'payment_info',
+    ];
+
+    // Jika Anda ingin payment_info otomatis di-cast ke array/object
+    protected $casts = [
+        'payment_info' => 'array',
+        'total_price' => 'decimal:0', // Pastikan Laravel tahu ini desimal
     ];
 
     public function items(): HasMany

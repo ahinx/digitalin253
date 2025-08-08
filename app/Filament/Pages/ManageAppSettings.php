@@ -87,16 +87,16 @@ class ManageAppSettings extends Page
                                 ->description('Kirim request ping ke Midtrans untuk menguji koneksi.')
                                 ->schema([
                                     TextInput::make('test_order_id')
-                                        ->label('Order ID Uji')
-                                        ->helperText('Masukkan ID order uji, mis: ORDER-TEST-123'),
+                                        ->label('ID Order Uji')
+                                        ->placeholder('Masukkan ID order uji, mis: ORDER-TEST-123'),
                                     TextInput::make('test_amount')
-                                        ->label('Gross Amount Uji')
-                                        ->helperText('Masukkan nominal, misal 10000'),
+                                        ->placeholder('Masukkan nominal, misal 10000'),
+
                                     Actions::make([
                                         Action::make('testMidtrans')
                                             ->label('Uji Koneksi Midtrans')
                                             ->action('sendTestMidtrans')
-                                            ->color('warning')
+                                            ->color('info')
                                             ->icon('heroicon-o-credit-card')
                                             ->requiresConfirmation()
                                             ->modalHeading('Uji Koneksi Midtrans')

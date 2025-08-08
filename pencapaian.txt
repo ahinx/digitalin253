@@ -1,0 +1,11 @@
+membuat manage setting global.
+saya membuat file di filament/Pages/ManageAppSettings.php, 
+kemudian menambahkan Helpers/ManageAppSettings, 
+membuat model AppSettings, 
+membuat migrasi app_settings, 
+memuat di composer.json
+  "files": [
+            "app/Helpers/appSettings.php"
+        ]
+
+

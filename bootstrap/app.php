@@ -3,16 +3,9 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
-
-
-    // ->withBootstrap(function () {
-    //     foreach (glob(__DIR__ . '/../app/Helpers/*.php') as $file) {
-    //         require_once $file;
-    //     }
-    // })
-
 
     ->withRouting(
         web: __DIR__ . '/../routes/web.php',
@@ -22,14 +15,16 @@ return Application::configure(basePath: dirname(__DIR__))
 
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // ✅ Tambahkan kode ini untuk mengonfigurasi TrustProxies
+        $middleware->trustProxies(
+            at: '*',
+            headers: Request::HEADER_X_FORWARDED_FOR |
+                Request::HEADER_X_FORWARDED_HOST |
+                Request::HEADER_X_FORWARDED_PORT |
+                Request::HEADER_X_FORWARDED_PROTO |
+                Request::HEADER_X_FORWARDED_AWS_ELB
+        );
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
-
-
-// // ✅ Muat semua helper di app/Helpers/
-// foreach (glob(__DIR__ . '/../app/Helpers/*.php') as $file) {
-//     require_once $file;
-// }
