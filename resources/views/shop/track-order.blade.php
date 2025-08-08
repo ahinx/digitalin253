@@ -3,21 +3,32 @@
 @section('content')
 <style>
     /* Gaya kustom ini tetap di sini karena spesifik untuk komponen di halaman ini */
-    /* Gaya body di sini akan ditimpa oleh layouts/app.blade.php */
-    .container {
+    /* Hapus gaya body yang tidak perlu dari sini */
+    /* .container {
         background-color: #ffffff;
         padding: 2.5rem;
         border-radius: 0.75rem;
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         width: 100%;
         max-width: 3xl;
-        /* Tailwind max-w-3xl */
         text-align: center;
         margin-bottom: 2rem;
         margin-left: auto;
-        /* Untuk centering */
         margin-right: auto;
-        /* Untuk centering */
+    } */
+    /* Memindahkan styling container ke dalam section content dan memastikan centering */
+    .track-order-container {
+        background-color: #ffffff;
+        padding: 2.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        width: 100%;
+        max-width: 48rem;
+        /* Menggunakan max-w-2xl atau 3xl agar tidak terlalu lebar */
+        text-align: center;
+        margin-bottom: 2rem;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .form-group {
@@ -133,7 +144,8 @@
     }
 </style>
 
-<div class="container">
+<div class="track-order-container"> {{-- Mengubah nama kelas container agar tidak bentrok dengan .container di
+    layouts/app.blade.php --}}
     <h1 class="text-3xl font-bold text-gray-800 mb-6">Lacak Pesanan Anda</h1>
 
     <form action="{{ route('shop.trackOrder.post') }}" method="POST" class="w-full">

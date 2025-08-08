@@ -18,10 +18,14 @@
     <div class="container mx-auto flex justify-between items-center">
       <a href="{{ route('shop.index') }}" class="text-2xl font-bold">{{ setting('app_name_public', 'Digitalin') }}</a>
       <nav class="space-x-6">
-        <a href="{{ route('shop.index') }}" class="hover:text-blue-500">Home</a>
-        <a href="{{ route('shop.cart') }}" class="hover:text-blue-500">Keranjang</a>
-        <a href="{{ route('shop.trackOrder') }}" class="hover:text-blue-500">Lacak Pesanan</a> {{-- Perbaikan:
-        Menggunakan route() --}}
+        <a href="{{ route('shop.index') }}"
+          class="hover:text-blue-500 @if(request()->routeIs('shop.index')) text-blue-600 font-semibold @endif">Home</a>
+        <a href="{{ route('shop.cart') }}"
+          class="hover:text-blue-500 @if(request()->routeIs('shop.cart')) text-blue-600 font-semibold @endif">Keranjang</a>
+        {{-- Menggunakan array rute untuk Lacak Pesanan karena ada rute GET dan POST --}}
+        <a href="{{ route('shop.trackOrder') }}"
+          class="hover:text-blue-500 @if(request()->routeIs(['shop.trackOrder', 'shop.trackOrder.post'])) text-blue-600 font-semibold @endif">Lacak
+          Pesanan</a>
       </nav>
     </div>
   </header>
@@ -32,22 +36,25 @@
   </main>
 
   <!-- Bottom Navigation Mobile -->
-  <nav class="fixed bottom-0 inset-x-0 bg-white shadow-inner p-2 flex justify-around md:hidden">
-    <a href="{{ route('shop.index') }}" class="flex flex-col items-center text-gray-600 hover:text-blue-500">
+  <nav class="fixed bottom-0 inset-x-0 bg-white shadow-inner p-2 flex justify-around md:hidden z-50">
+    <a href="{{ route('shop.index') }}"
+      class="flex flex-col items-center text-gray-600 hover:text-blue-500 @if(request()->routeIs('shop.index')) text-blue-600 @endif">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M13 5v6h6" />
       </svg>
       <span class="text-xs">Home</span>
     </a>
-    <a href="{{ route('shop.cart') }}" class="flex flex-col items-center text-gray-600 hover:text-blue-500">
+    <a href="{{ route('shop.cart') }}"
+      class="flex flex-col items-center text-gray-600 hover:text-blue-500 @if(request()->routeIs('shop.cart')) text-blue-600 @endif">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M3 3h2l.4 2M7 13h14l-1.35 6H6.65L5 13zm0 0L5 6h16M7 13L5 6" />
       </svg>
       <span class="text-xs">Keranjang</span>
     </a>
-    <a href="{{ route('shop.trackOrder') }}" class="flex flex-col items-center text-gray-600 hover:text-blue-500"> {{--
-      Perbaikan: Menggunakan route() --}}
+    {{-- Menggunakan array rute untuk Lacak Pesanan --}}
+    <a href="{{ route('shop.trackOrder') }}"
+      class="flex flex-col items-center text-gray-600 hover:text-blue-500 @if(request()->routeIs(['shop.trackOrder', 'shop.trackOrder.post'])) text-blue-600 @endif">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 018 0v2" />
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11a7 7 0 0114 0v6H5v-6z" />
