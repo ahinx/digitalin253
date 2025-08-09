@@ -14,6 +14,7 @@ use Midtrans\Snap;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; // Import DB facade untuk transaksi
 use App\Jobs\SendWhatsAppNotification;
+use App\Services\MidtransService;
 
 class ShopController extends Controller
 {
@@ -172,43 +173,64 @@ class ShopController extends Controller
                 throw new \Exception('Total harga pesanan harus lebih dari nol.');
             }
 
+            $trackingKey = Str::random(6); // Ini akan menghasilkan string 6 karakter acak (huruf dan angka)
+
             $order = Order::create([
                 'buyer_name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'status' => 'pending',
                 'total_price' => $total,
-                'magic_link_token' => Str::uuid()
+                'magic_link_token' => Str::uuid(),
+                'tracking_key' => $trackingKey,
             ]);
+
 
             foreach ($cart as $entry) {
                 $product = Product::find($entry['product_id']);
                 $price_item = (float) $product->price;
                 $quantity_item = (int) ($entry['quantity'] ?? 1);
 
+                $deliverableType = null;
+                $deliverableId = null;
+
                 if (!empty($entry['variant_id'])) {
                     $variant = $product->variants()->find($entry['variant_id']);
                     if ($variant) {
                         $price_item = (float) $variant->price;
+                        // Jika varian memiliki tipe unduhan, gunakan varian sebagai deliverable
+                        if ($variant->downloadable_type && ($variant->file_path || $variant->external_url)) {
+                            $deliverableType = \App\Models\ProductVariant::class; // Nama kelas model varian
+                            $deliverableId = $variant->id;
+                        }
+                    } else {
+                        // Varian tidak valid, log dan lewati atau throw error
+                        Log::warning('Varian produk tidak ditemukan saat membuat OrderItem: ID ' . $entry['variant_id']);
+                        continue; // Lewati item ini atau throw new \Exception
+                    }
+                } else {
+                    // Jika tidak ada varian, cek apakah produk simple ini dapat diunduh
+                    if ($product->type === 'simple' && $product->downloadable_type && ($product->file_path || $product->external_url)) {
+                        $deliverableType = \App\Models\Product::class; // Nama kelas model produk
+                        $deliverableId = $product->id;
                     }
                 }
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $entry['product_id'],
                     'product_variant_id' => $entry['variant_id'] ?? null,
-                    'price' => $price_item, // <<< PERBAIKAN: Sertakan kolom 'price'
-                    'quantity' => $quantity_item, // <<< PERBAIKAN: Sertakan kolom 'quantity'
-                    // Kolom timestamps (created_at, updated_at) akan otomatis diisi oleh Eloquent
+                    'price' => $price_item,
+                    'quantity' => $quantity_item,
+                    'deliverable_type' => $deliverableType, // <<< Mengisi kolom deliverable_type
+                    'deliverable_id' => $deliverableId,     // <<< Mengisi kolom deliverable_id
                 ]);
             }
 
             Session::forget('cart');
 
-            MidtransConfig::$serverKey    = setting('midtrans_server_key', config('services.midtrans.server_key'));
-            MidtransConfig::$clientKey    = setting('midtrans_client_key', config('services.midtrans.client_key'));
-            MidtransConfig::$isProduction = setting('midtrans_mode', config('services.midtrans.is_production') ? 'production' : 'sandbox') === 'production';
-            MidtransConfig::$isSanitized  = true;
-            MidtransConfig::$is3ds        = true;
+            // Panggil MidtransService untuk konfigurasi
+            MidtransService::configure();
 
             $transaction = [
                 'transaction_details' => [
@@ -299,47 +321,52 @@ class ShopController extends Controller
         }
     }
 
+
+    /**
+     * Menampilkan halaman lacak pesanan dan memproses pencarian.
+     *
+     * @param Request $request
+     * @return \Illuminate\Contracts\View\View
+     */
     public function trackOrder(Request $request)
     {
         $orders = collect();
         $phone = $request->input('phone');
+        $trackingKeyInput = $request->input('tracking_key');
         $searchPerformed = false;
         $snapTokens = [];
         $autoSnapOrderId = $request->query('auto_snap_order_id');
+        $displayMessage = null;
 
+        // --- Scenario 1: Coming from a paymentLink (auto_snap_order_id is present in query string) ---
         if ($autoSnapOrderId) {
             $orderToSnap = Order::find($autoSnapOrderId);
-            if ($orderToSnap) {
+
+            // Validate that the order exists and is pending.
+            // We no longer strictly validate tracking_key from URL here, as signed URL is primary security.
+            if ($orderToSnap && $orderToSnap->status === 'pending') {
+                // Pre-fill form fields with this order's data
                 $phone = $orderToSnap->phone;
-            }
-        }
+                $trackingKeyInput = $orderToSnap->tracking_key; // Pre-fill with actual key from DB
+                $searchPerformed = true; // Indicate that a search result (single order) is being displayed
 
-        if ($phone) {
-            $searchPerformed = true;
-            $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+                // Only display THIS specific order if coming from auto-snap link
+                $orders = collect([$orderToSnap]);
 
-            $orders = Order::where('phone', 'like', '%' . $cleanPhone . '%')
-                ->with('items.product', 'items.variant')
-                ->orderBy('created_at', 'desc')
-                ->get();
+                // Generate Snap Token for this specific order if pending
+                // Panggil MidtransService untuk konfigurasi
+                MidtransService::configure();
 
-            foreach ($orders as $order) {
-                if ($order->status === 'pending') {
-                    MidtransConfig::$serverKey    = setting('midtrans_server_key', config('services.midtrans.server_key'));
-                    MidtransConfig::$clientKey    = setting('midtrans_client_key', config('services.midtrans.client_key'));
-                    MidtransConfig::$isProduction = setting('midtrans_mode', config('services.midtrans.is_production') ? 'production' : 'sandbox') === 'production';
-                    MidtransConfig::$isSanitized  = true;
-                    MidtransConfig::$is3ds        = true;
+                $grossAmount = (float) $orderToSnap->total_price;
 
-                    $grossAmount = (float) $order->total_price;
-
-                    if ($grossAmount <= 0) {
-                        Log::error('Total harga order di trackOrder nol atau negatif: ' . $order->id . ' Harga: ' . $grossAmount);
-                        continue;
-                    }
-
+                if ($grossAmount <= 0) {
+                    Log::error('Total harga order di trackOrder (auto-snap) nol atau negatif: ' . $orderToSnap->id . ' Harga: ' . $grossAmount);
+                    $snapTokens[$orderToSnap->id] = null;
+                    $displayMessage = 'Gagal memuat pembayaran untuk pesanan ini (harga tidak valid).';
+                } else {
                     $midtransItems = [];
-                    foreach ($order->items as $item) {
+                    $orderToSnap->loadMissing('items.product', 'items.variant');
+                    foreach ($orderToSnap->items as $item) {
                         $product = $item->product;
                         $variant = $item->variant;
                         $itemName = $product->name ?? 'Produk Tidak Dikenal';
@@ -359,27 +386,114 @@ class ShopController extends Controller
 
                     $txn = [
                         'transaction_details' => [
-                            'order_id'     => 'ORDER-TRACK-' . $order->id . '-' . time(),
+                            'order_id'     => 'ORDER-TRACK-' . $orderToSnap->id . '-' . time(),
                             'gross_amount' => $grossAmount,
                         ],
                         'customer_details' => [
-                            'first_name' => $order->buyer_name,
-                            'email'      => $order->email,
-                            'phone'      => $order->phone,
+                            'first_name' => $orderToSnap->buyer_name,
+                            'email'      => $orderToSnap->email,
+                            'phone'      => $orderToSnap->phone,
                         ],
                         'item_details' => $midtransItems,
                     ];
 
                     try {
-                        $snapTokens[$order->id] = Snap::getSnapToken($txn);
+                        $snapTokens[$orderToSnap->id] = Snap::getSnapToken($txn);
                     } catch (\Exception $e) {
-                        Log::error('Gagal mendapatkan Snap Token di trackOrder: ' . $e->getMessage(), ['order_id' => $order->id, 'total_price' => $order->total_price]);
-                        $snapTokens[$order->id] = null;
+                        Log::error('Gagal mendapatkan Snap Token di trackOrder (auto-snap): ' . $e->getMessage(), ['order_id' => $orderToSnap->id, 'total_price' => $orderToSnap->total_price]);
+                        $snapTokens[$orderToSnap->id] = null;
+                        $displayMessage = 'Gagal memuat opsi pembayaran. Silakan coba lagi.';
+                    }
+                }
+            } else {
+                // Order not found, not pending, or signed URL invalid (though signedRoute handles this).
+                // Clear autoSnapOrderId to prevent JS from triggering Snap.
+                $autoSnapOrderId = null;
+                $displayMessage = 'Tautan pembayaran otomatis tidak valid atau pesanan tidak ditemukan.';
+                // IMPORTANT: Do NOT set $searchPerformed = true; here if we don't want to show results.
+                // We let the user perform a manual search if they want.
+            }
+        }
+        // --- Handle manual form submission scenario (POST request) ---
+        else if ($request->isMethod('post')) {
+            $searchPerformed = true; // A search was attempted via form
+            if (empty($phone) || empty($trackingKeyInput)) {
+                $displayMessage = 'Nomor WhatsApp dan Kunci Pelacakan harus diisi untuk mencari pesanan.';
+            } else {
+                $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+
+                // For manual search, both phone and tracking_key MUST match
+                $orders = Order::where('phone', 'like', '%' . $cleanPhone . '%')
+                    ->whereRaw('BINARY tracking_key = ?', [$trackingKeyInput])
+                    ->with('items.product', 'items.variant')
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+                if ($orders->isEmpty()) {
+                    $displayMessage = 'Tidak ada pesanan yang ditemukan dengan kombinasi Nomor WhatsApp dan Kunci Pelacakan tersebut.';
+                } else {
+                    // If orders are found via manual search, generate snap tokens for pending ones
+                    foreach ($orders as $order) {
+                        if ($order->status === 'pending') {
+
+                            // Panggil MidtransService untuk konfigurasi
+                            MidtransService::configure();
+                            $grossAmount = (float) $order->total_price;
+
+                            if ($grossAmount <= 0) {
+                                Log::error('Total harga order di trackOrder (manual) nol atau negatif: ' . $order->id . ' Harga: ' . $grossAmount);
+                                $snapTokens[$order->id] = null;
+                                continue;
+                            }
+
+                            $midtransItems = [];
+                            $order->loadMissing('items.product', 'items.variant');
+                            foreach ($order->items as $item) {
+                                $product = $item->product;
+                                $variant = $item->variant;
+                                $itemName = $product->name ?? 'Produk Tidak Dikenal';
+                                $price = (float) $item->price;
+
+                                if ($variant) {
+                                    $itemName .= ' - ' . ($variant->name ?? 'Varian Tidak Dikenal');
+                                }
+
+                                $midtransItems[] = [
+                                    'id'       => ($product->id ?? 'unknown') . ($variant->id ?? ''),
+                                    'price'    => $price,
+                                    'quantity' => (int)($item->quantity ?? 1),
+                                    'name'     => $itemName,
+                                ];
+                            }
+
+                            $txn = [
+                                'transaction_details' => [
+                                    'order_id'     => 'ORDER-TRACK-' . $order->id . '-' . time(),
+                                    'gross_amount' => $grossAmount,
+                                ],
+                                'customer_details' => [
+                                    'first_name' => $order->buyer_name,
+                                    'email'      => $order->email,
+                                    'phone'      => $order->phone,
+                                ],
+                                'item_details' => $midtransItems,
+                            ];
+
+                            try {
+                                $snapTokens[$order->id] = Snap::getSnapToken($txn);
+                            } catch (\Exception $e) {
+                                Log::error('Gagal mendapatkan Snap Token di trackOrder (manual): ' . $e->getMessage(), ['order_id' => $order->id, 'total_price' => $order->total_price]);
+                                $snapTokens[$order->id] = null;
+                            }
+                        }
                     }
                 }
             }
         }
+        // --- Initial GET request to /track-order (no search performed yet) ---
+        // In this case, $searchPerformed remains false, $orders remains empty.
+        // The view will just show the empty form.
 
-        return view('shop.track-order', compact('orders', 'phone', 'searchPerformed', 'snapTokens', 'autoSnapOrderId'));
+        return view('shop.track-order', compact('orders', 'phone', 'trackingKeyInput', 'searchPerformed', 'snapTokens', 'autoSnapOrderId', 'displayMessage'));
     }
 }

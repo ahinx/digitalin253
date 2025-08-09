@@ -56,31 +56,46 @@ class SendWhatsAppNotification implements ShouldQueue
                 // Pesan untuk pengingat pembayaran (belum dibayar)
                 // Menggunakan URL::signedRoute untuk keamanan link pembayaran
                 $paymentUrl = URL::signedRoute('shop.paymentLink', ['order' => $this->order->id]);
-                $amount  = number_format((float) $this->order->total_price, 0, ',', '.'); // <<< Pastikan casting ke float untuk total_price dari DB
-                $message = "Halo {$this->order->buyer_name},\n"
-                    . "Terima kasih telah memesan (Order #{$this->order->id}).\n"
-                    . "Total pembayaran: Rp{$amount}.\n"
-                    . "Silakan selesaikan pembayaran Anda di sini: {$paymentUrl}\n\n"
+                $amount  = number_format((float) $this->order->total_price, 0, ',', '.'); // Pastikan casting ke float untuk total_price dari DB
+
+                // Template pesan yang diperbaiki
+                $message = "🔔 *PENGINGAT PEMBAYARAN*\n\n" // Icon dan judul tebal
+                    . "Halo *{$this->order->buyer_name}*,\n"
+                    . "Terima kasih telah memesan (Order #*{$this->order->id}*).\n\n" // Order ID tebal
+                    . "Total pembayaran Anda adalah: *Rp{$amount}*.\n\n" // Total pembayaran tebal
+                    . "Silakan selesaikan pembayaran Anda melalui tautan berikut:\n"
+                    . "*{$paymentUrl}*\n\n" // Link tebal
+                    . "Pesanan Anda akan diproses setelah pembayaran dikonfirmasi.\n"
                     . "Terima kasih!";
                 break;
 
             case 'payment_success':
-                // PERBAIKAN: Gunakan url() helper, BUKAN route() helper
-                $orderDetailLink = url('/thank-you?order_id=' . $this->order->id); // <<< PERBAIKAN INI PENTING
+                // Pesan setelah pembayaran berhasil
+                $orderDetailLink = url('/thank-you?order_id=' . $this->order->id);
+                $downloadMagicLink = null;
+                $trackingKey = $this->order->tracking_key; // <<< Pastikan ini mengambil tracking_key
+
+                // Template pesan yang diperbaiki
+                $message = "✅ *PEMBAYARAN BERHASIL*\n\n" // Icon dan judul tebal
+                    . "Halo *{$this->order->buyer_name}*,\n"
+                    . "Pembayaran untuk pesanan Anda (Order #*{$this->order->id}*) telah *berhasil diterima*! 🎉\n\n"; // Order ID dan status tebal
 
                 if ($this->order->magic_link_token) {
-                    // PERBAIKAN: Gunakan url() helper, BUKAN route() helper
-                    $downloadMagicLink = url('/magic-link/' . $this->order->magic_link_token); // <<< PERBAIKAN INI PENTING
-                    $message = "Halo {$this->order->buyer_name},\n"
-                        . "Pembayaran untuk pesanan Anda (Order #{$this->order->id}) telah berhasil diterima. Terima kasih!\n"
-                        . "Silakan unduh produk Anda di: {$downloadMagicLink}\n\n"
-                        . "Jika ada pertanyaan, jangan ragu untuk menghubungi kami.";
+                    $downloadMagicLink = url('/magic-link/' . $this->order->magic_link_token);
+                    $message .= "Silakan unduh produk Anda di sini:\n"
+                        . "*{$downloadMagicLink}*\n"; // Link tebal
                 } else {
-                    $message = "Halo {$this->order->buyer_name},\n"
-                        . "Pembayaran untuk pesanan Anda (Order #{$this->order->id}) telah berhasil diterima. Terima kasih!\n"
-                        . "Lihat detail pesanan Anda di sini: {$orderDetailLink}\n\n"
-                        . "Kami akan segera memproses pesanan Anda.";
+                    $message .= "Lihat detail pesanan Anda di sini:\n"
+                        . "*{$orderDetailLink}*\n"; // Link tebal
                 }
+
+                // <<< Pastikan blok ini ada dan benar
+                if ($trackingKey) {
+                    $message .= "\nUntuk melacak pesanan Anda di masa mendatang, gunakan Kunci Pelacakan ini:\n"
+                        . "*{$trackingKey}*\n"; // Kunci pelacakan tebal
+                }
+                $message .= "\nJika ada pertanyaan atau butuh bantuan, jangan ragu untuk menghubungi kami.\n"
+                    . "Terima kasih atas pembelian Anda!";
                 break;
 
             default:

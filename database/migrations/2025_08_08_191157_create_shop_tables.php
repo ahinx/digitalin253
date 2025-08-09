@@ -97,6 +97,7 @@ return new class extends Migration {
             $table->string('phone')->comment('Nomor telepon pembeli');
             $table->string('email')->nullable()->comment('Email pembeli');
             $table->string('magic_link_token')->unique()->comment('Token unik untuk magic link order');
+            $table->string('tracking_key', 6)->nullable()->comment('Kunci 6 digit untuk pelacakan pesanan oleh pembeli');
             $table->enum('status', ['pending', 'paid', 'expired', 'cancelled', 'denied', 'challenge'])->default('pending')->comment('Status pembayaran order'); // Menambahkan status 'cancelled', 'denied', 'challenge'
             $table->decimal('total_price', 10, 0)->default(0)->comment('Total harga order (tanpa desimal)'); // <<< DECIMAL (X,0)
             $table->json('payment_info')->nullable()->comment('Payload JSON dari notifikasi pembayaran (contoh: Midtrans)'); // Kolom tambahan dari migrasi Anda

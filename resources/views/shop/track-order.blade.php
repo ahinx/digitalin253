@@ -2,21 +2,6 @@
 
 @section('content')
 <style>
-    /* Gaya kustom ini tetap di sini karena spesifik untuk komponen di halaman ini */
-    /* Hapus gaya body yang tidak perlu dari sini */
-    /* .container {
-        background-color: #ffffff;
-        padding: 2.5rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        width: 100%;
-        max-width: 3xl;
-        text-align: center;
-        margin-bottom: 2rem;
-        margin-left: auto;
-        margin-right: auto;
-    } */
-    /* Memindahkan styling container ke dalam section content dan memastikan centering */
     .track-order-container {
         background-color: #ffffff;
         padding: 2.5rem;
@@ -24,7 +9,6 @@
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         width: 100%;
         max-width: 48rem;
-        /* Menggunakan max-w-2xl atau 3xl agar tidak terlalu lebar */
         text-align: center;
         margin-bottom: 2rem;
         margin-left: auto;
@@ -144,8 +128,7 @@
     }
 </style>
 
-<div class="track-order-container"> {{-- Mengubah nama kelas container agar tidak bentrok dengan .container di
-    layouts/app.blade.php --}}
+<div class="track-order-container">
     <h1 class="text-3xl font-bold text-gray-800 mb-6">Lacak Pesanan Anda</h1>
 
     <form action="{{ route('shop.trackOrder.post') }}" method="POST" class="w-full">
@@ -157,18 +140,33 @@
             <input type="text" id="phone" name="phone" value="{{ old('phone', $phone) }}" class="input-field"
                 placeholder="Masukkan nomor WhatsApp Anda" required>
         </div>
+        <div class="form-group">
+            <label for="tracking_key" class="block text-gray-700 text-sm font-bold mb-2 text-left">
+                Kunci Pelacakan (6 Digit dari WhatsApp)
+            </label>
+            <input type="text" id="tracking_key" name="tracking_key"
+                value="{{ old('tracking_key', $trackingKeyInput) }}" class="input-field"
+                placeholder="Masukkan kunci pelacakan Anda (misal: ABC123)" maxlength="6">
+        </div>
         <button type="submit" class="button-primary">Cari Pesanan</button>
     </form>
+
+    {{-- Display general messages --}}
+    @if($displayMessage)
+    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md mt-4" role="alert">
+        <p>{{ $displayMessage }}</p>
+    </div>
+    @endif
 </div>
 
 @if($searchPerformed)
 <div class="w-full max-w-3xl mx-auto">
     <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Hasil Pencarian</h2>
 
-    @if($orders->isEmpty())
+    @if($orders->isEmpty() && !$displayMessage)
     <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md" role="alert">
         <p class="font-bold">Tidak Ditemukan</p>
-        <p>Tidak ada pesanan yang ditemukan dengan nomor WhatsApp tersebut.</p>
+        <p>Tidak ada pesanan yang ditemukan dengan kriteria pencarian tersebut.</p>
     </div>
     @else
     @foreach($orders as $order)
@@ -205,10 +203,10 @@
             Unduh Produk Anda (Magic Link)
         </a>
         @else
-        <a href="{{ url('/thank-you?order_id=' . $order->id) }}" class="link-style block mt-2">
-            Lihat Detail Pesanan
-        </a>
+        <p class="text-gray-600 text-sm mt-2">Link unduhan tidak tersedia. Silakan hubungi admin.</p>
         @endif
+        <p class="text-gray-500 text-sm mt-2">Kunci Pelacakan: <span class="font-bold text-gray-700">{{
+                $order->tracking_key }}</span></p>
         @else
         <p class="text-gray-600 font-medium">Status pesanan: {{ ucfirst($order->status) }}.</p>
         <a href="{{ url('/thank-you?order_id=' . $order->id) }}" class="link-style block mt-2">
@@ -222,7 +220,6 @@
 @endif
 
 {{-- Midtrans Snap JS --}}
-{{-- Pastikan ini dimuat setelah elemen HTML tempat tombol Bayar Sekarang berada --}}
 <script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js"
     data-client-key="{{ config('services.midtrans.client_key') }}">
 </script>
@@ -233,19 +230,26 @@
             window.snap.pay(snapToken, {
                 onSuccess: function(result){
                     console.log('Payment success:', result);
+                    // Redirect ke halaman thank you setelah sukses
                     window.location.href = "{{ url('/thank-you?order_id=') }}" + orderId;
                 },
                 onPending: function(result){
                     console.log('Payment pending:', result);
+                    // Redirect ke halaman thank you (opsional, bisa ke halaman status pending)
                     window.location.href = "{{ url('/thank-you?order_id=') }}" + orderId;
                 },
                 onError: function(result){
                     console.log('Payment failed:', result);
+                    // Redirect ke halaman thank you (opsional, bisa ke halaman error)
                     window.location.href = "{{ url('/thank-you?order_id=') }}" + orderId;
                 },
                 onClose: function(){
                     console.log('Payment popup closed without finishing.');
-                    // Opsional: refresh halaman atau tampilkan pesan
+                    // PERBAIKAN: Jangan redirect ke halaman thank you.
+                    // Cukup refresh halaman untuk memperbarui status atau tetap di halaman ini.
+                    // window.location.reload(); // Refresh halaman
+                    // Atau, jika tidak ingin refresh, bisa tampilkan pesan di UI
+                    // alert('Anda menutup pop-up pembayaran tanpa menyelesaikan pembayaran.'); // Contoh
                 }
             });
         } else {
@@ -253,20 +257,18 @@
         }
     }
 
-    // Logika untuk memicu Snap secara otomatis saat halaman dimuat
     document.addEventListener('DOMContentLoaded', function() {
-        const autoSnapOrderId = "{{ $autoSnapOrderId ?? '' }}"; // Ambil autoSnapOrderId dari Laravel
+        const autoSnapOrderId = "{{ $autoSnapOrderId ?? '' }}";
         if (autoSnapOrderId) {
-            // Cari snapToken yang sesuai dengan autoSnapOrderId
-            const snapTokens = {!! json_encode($snapTokens) !!}; // Pastikan $snapTokens di-encode dengan benar
+            const snapTokens = {!! json_encode($snapTokens) !!};
             const targetSnapToken = snapTokens[autoSnapOrderId];
 
             if (targetSnapToken) {
-                // Panggil fungsi payWithSnap setelah halaman diload dan Snap JS siap
-                // Memberi sedikit delay untuk memastikan Snap JS sepenuhnya dimuat
+                window.scrollTo(0, 0); // Scroll ke atas untuk memastikan pop-up terlihat
+                
                 setTimeout(() => {
                     payWithSnap(targetSnapToken, autoSnapOrderId);
-                }, 500); // Delay 500ms
+                }, 500);
             } else {
                 console.error('Snap Token tidak ditemukan untuk autoSnapOrderId:', autoSnapOrderId);
             }

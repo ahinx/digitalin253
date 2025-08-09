@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Midtrans\Config as MidtransConfig;
 use Illuminate\Support\Facades\Log;
 use App\Jobs\SendWhatsAppNotification;
+use App\Services\MidtransService;
 
 class MidtransWebhookController extends Controller
 {
@@ -17,11 +18,8 @@ class MidtransWebhookController extends Controller
             return response()->json(['message' => 'OK'], 200);
         }
 
-        MidtransConfig::$serverKey    = setting('midtrans_server_key', config('services.midtrans.server_key'));
-        MidtransConfig::$clientKey    = setting('midtrans_client_key', config('services.midtrans.client_key'));
-        MidtransConfig::$isProduction = setting('midtrans_mode', config('services.midtrans.is_production') ? 'production' : 'sandbox') === 'production';
-        MidtransConfig::$isSanitized  = true;
-        MidtransConfig::$is3ds        = true;
+        // Panggil MidtransService untuk konfigurasi
+        MidtransService::configure();
 
         $payload = json_decode($request->getContent(), true) ?: [];
         Log::info('Midtrans Raw Payload:', $payload);

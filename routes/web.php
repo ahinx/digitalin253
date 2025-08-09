@@ -39,4 +39,4 @@ Route::get('/payment/{order}', [ShopController::class, 'paymentLink'])->name('sh
 Route::get('/track-order', [ShopController::class, 'trackOrder'])->name('shop.trackOrder');
 
 // Untuk memproses pencarian
-Route::post('/track-order', [ShopController::class, 'trackOrder'])->name('shop.trackOrder.post')->middleware('throttle:5,1'); // 5 attempts per minute
+Route::post('/track-order', [ShopController::class, 'trackOrder'])->name('shop.trackOrder.post')->middleware('throttle:10,1'); // 5 attempts per minute

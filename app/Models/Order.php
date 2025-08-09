@@ -15,8 +15,10 @@ class Order extends Model
         'phone',
         'email',
         'magic_link_token',
+        'tracking_key',
         'status',
         'total_price',
+        'tracking_key',
         'payment_info',
     ];
 

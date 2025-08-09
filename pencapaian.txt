@@ -9,3 +9,18 @@ memuat di composer.json
         ]
 
 
+perbaikan pembelian pada checkout,
+berhubungan dengan file 
+    MidtransWebhookController.php,
+    SendWhatsAppNotification.php,
+    controller ShopController,
+    model orders dan order_items,
+    view lacak pesanan.
+pelacakan pesanan dengan nomor whatsapp dan tracking_key di controller ShopController.
+refaktor midtrans dengan menaruh adi app/Service/MidtransService, kemudian mengganti stting midtrans dan MidtransWebhookController.
+
+
+menggunakan deliverable_type dan deliverable_id untuk menyimpan ditabel order_items dengan MorpTo (belum tau untuk apa) untuk mengirimkan produk digital.
+berfungsi jika barang di edit dan lebih aman dan link tidak hilang.
+
+

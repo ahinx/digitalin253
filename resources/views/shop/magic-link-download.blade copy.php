@@ -2,9 +2,8 @@
 
 @section('content')
 
-{{-- Debugging: Anda bisa mengaktifkan ini untuk melihat struktur data deliverable --}}
 {{-- <pre>
-    {{ json_encode($order->items->pluck('deliverable'), JSON_PRETTY_PRINT) }}
+    {{ json_encode($order->items->pluck('variant'), JSON_PRETTY_PRINT) }}
 </pre> --}}
 
 <div class="max-w-3xl mx-auto p-4">
@@ -15,9 +14,8 @@
     <ul class="space-y-4">
         @foreach ($order->items as $item)
         @php
-        $source = $item->deliverable; // Ini akan menjadi instance Product atau ProductVariant
-        // PERBAIKAN: Definisikan $isVariant berdasarkan instance deliverable
-        $isVariant = ($source instanceof \App\Models\ProductVariant);
+        $isVariant = $item->variant !== null;
+        $source = $isVariant ? $item->variant : $item->product;
         $downloadType = $source->downloadable_type ?? null;
         $filePath = $source->file_path ?? null;
         $externalUrl = $source->external_url ?? null;
