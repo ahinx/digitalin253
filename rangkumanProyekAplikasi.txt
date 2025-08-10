@@ -1,0 +1,214 @@
++-----------------+       +--------------------+       +-------------------+
+|    products     |       |  product_variants  |       |     app_settings  |
++-----------------+       +--------------------+       +-------------------+
+| id              |<--+   | id                 |       | id                |
+| name            |   |   | product_id         |<------+ key (UNIQUE)      |
+| description     |   |   | name               |       | value             |
+| type            |   |   | price              |       +-------------------+
+| main_image      |   |   | image              |
+| price           |   |   | downloadable_type  |
+| discount_price  |   |   | file_path          |
+| downloadable_type|   |   | external_url       |
+| file_path       |   |   +--------------------+
+| external_url    |   |
+| download_url    |   |
++-----------------+   |
+                      |
++-----------------+   |
+|     vouchers    |   |
++-----------------+   |
+| id              |<--+
+| code (UNIQUE)   |
+| discount_type   |
+| value           |
+| expires_at      |
+| usage_limit     |
+| used_count      |
++-----------------+
+        |
+        |
+        V
++-----------------+       +-----------------+
+|      orders     |       |   order_items   |
++-----------------+       +-----------------+
+| id              |<--+   | id              |
+| buyer_name      |   |   | order_id        |<--+
+| phone           |   |   | product_id      |<--+
+| email           |   |   | product_variant_id|<--+
+| magic_link_token|   |   | price           |
+| tracking_key    |   |   | quantity        |
+| status          |   |   | deliverable_type| (Polymorphic)
+| total_price     |   |   | deliverable_id  | (Relates to products or product_variants)
+| discount_amount |   |   +-----------------+
+| voucher_id      |<--+
+| payment_info    |
++-----------------+
+
+Berikut adalah rangkuman lengkap mengenai struktur basis data dan fungsionalitas kode inti aplikasi toko online Anda:
+
+1. Struktur Basis Data dan Relasinya
+Basis data Anda dirancang untuk mendukung fungsionalitas toko online, termasuk produk, pesanan, voucher, dan pengaturan.
+
+app_settings
+
+Fungsi: Menyimpan pengaturan aplikasi yang dapat diubah secara dinamis dari panel admin (contoh: kunci API Midtrans, URL WhatsApp API, nama aplikasi).
+
+Kolom Penting: key (unik), value.
+
+Relasi: Tidak ada relasi langsung dengan tabel lain, tetapi datanya digunakan secara luas di seluruh aplikasi.
+
+products
+
+Fungsi: Menyimpan informasi dasar tentang produk yang dijual. Produk bisa bertipe simple (tanpa varian) atau variant (dengan varian).
+
+Kolom Penting: name, description, type, main_image, price (untuk simple product), discount_price, downloadable_type, file_path, external_url, download_url.
+
+Relasi: hasMany product_variants (jika type adalah 'variant').
+
+product_variants
+
+Fungsi: Menyimpan detail varian untuk produk bertipe 'variant' (contoh: ukuran, warna). Setiap varian memiliki harga dan opsi unduhan sendiri.
+
+Kolom Penting: product_id, name, price, image, downloadable_type, file_path, external_url.
+
+Relasi: belongsTo products.
+
+vouchers
+
+Fungsi: Menyimpan kode voucher yang dapat diterapkan untuk diskon.
+
+Kolom Penting: code (unik), discount_type ('fixed' atau 'percent'), value, expires_at, usage_limit, used_count.
+
+Relasi: hasMany orders (melalui voucher_id di tabel orders).
+
+orders
+
+Fungsi: Menyimpan detail setiap pesanan yang dibuat oleh pembeli.
+
+Kolom Penting: buyer_name, phone, email, magic_link_token (unik, untuk tautan unduhan/detail tanpa login), tracking_key (unik, untuk pelacakan pesanan oleh pembeli), status (pending, paid, expired, cancelled, denied, challenge), total_price (harga akhir setelah diskon), discount_amount, voucher_id, payment_info (JSON dari Midtrans).
+
+Relasi:
+
+hasMany order_items.
+
+belongsTo vouchers (melalui voucher_id).
+
+order_items
+
+Fungsi: Menyimpan detail setiap item produk dalam sebuah pesanan. Ini mencatat harga dan kuantitas item saat pesanan dibuat.
+
+Kolom Penting: order_id, product_id, product_variant_id, price (harga item saat dibeli), quantity, deliverable_type (model yang dapat diunduh, misal App\Models\Product atau App\Models\ProductVariant), deliverable_id (ID dari model yang dapat diunduh).
+
+Relasi:
+
+belongsTo orders.
+
+belongsTo products.
+
+belongsTo product_variants.
+
+morphTo deliverable (relasi polimorfik ke Product atau ProductVariant).
+
+2. Fungsi Utama dari Setiap Komponen Kode
+App\Http\Controllers\ShopController.php
+
+index(): Menampilkan daftar produk di etalase toko.
+
+addToCart(): Menambahkan produk (dengan kuantitas) ke keranjang belanja (disimpan di session).
+
+viewCart(): Menampilkan isi keranjang belanja, menghitung subtotal, dan menampilkan diskon voucher yang diterapkan.
+
+applyVoucher(): Menerima kode voucher dari AJAX, memvalidasinya, menghitung diskon, dan menyimpan informasi voucher yang diterapkan di session.
+
+removeVoucher(): Menghapus voucher yang diterapkan dari session.
+
+checkout(): Memproses pesanan dari keranjang. Membuat entri Order dan OrderItem dalam transaksi database, menerapkan diskon voucher, menginisialisasi Midtrans Snap, dan me-dispatch Job SendWhatsAppNotification (tipe payment_reminder).
+
+paymentLink(): Menerima permintaan dari link pembayaran WhatsApp, kemudian me-redirect ke halaman trackOrder dengan parameter auto_snap_order_id dan tracking_key untuk memicu Snap otomatis.
+
+thankYou(): Menampilkan halaman terima kasih setelah pembayaran, menunjukkan detail pesanan.
+
+trackOrder(): Menampilkan form pelacakan pesanan. Memproses pencarian pesanan berdasarkan nomor WhatsApp dan tracking_key. Jika diakses dari link pembayaran WA, akan otomatis mencari dan memicu Midtrans Snap untuk pesanan yang relevan.
+
+testWhatsApp(): Endpoint untuk menguji koneksi dan pengiriman pesan WhatsApp melalui Fonnte API.
+
+App\Http\Controllers\MidtransWebhookController.php
+
+handle(): Menerima notifikasi pembayaran (webhook) dari Midtrans. Memverifikasi signature, mem-parsing order_id (menangani berbagai format seperti ORDER-ID, ORDER-RETRY-ID, ORDER-TRACK-ID), memperbarui status Order di database, dan me-dispatch Job SendWhatsAppNotification (tipe payment_success) jika pembayaran berhasil.
+
+App\Jobs\SendWhatsAppNotification.php
+
+handle(): Job yang berjalan di latar belakang untuk mengirim pesan WhatsApp melalui Fonnte API. Pesan disesuaikan berdasarkan type (pengingat pembayaran atau konfirmasi sukses) dan menyertakan detail seperti total harga, link pembayaran/unduhan, dan tracking_key.
+
+App\Services\MidtransService.php
+
+configure(): Sebuah Service Class statis yang bertanggung jawab untuk mengatur konfigurasi Midtrans SDK (serverKey, clientKey, isProduction, dll.) secara terpusat. Ini membantu menjaga controller tetap bersih dan menghindari duplikasi kode konfigurasi.
+
+App\Filament\Resources\OrderResource.php (Panel Admin)
+
+Mendefinisikan bagaimana pesanan ditampilkan dan dikelola di panel admin Filament.
+
+Form: Menampilkan detail pesanan dalam format seperti invoice (informasi pembeli, ringkasan biaya, item pesanan, kunci akses, info pembayaran Midtrans). Memungkinkan admin mengubah status pesanan.
+
+Tabel: Menampilkan daftar pesanan dengan nomor urut, tanggal, pembeli, total, status, dan opsi untuk mengirim ulang notifikasi WhatsApp (pengingat atau sukses).
+
+Tidak ada Create/Delete: Admin tidak dapat membuat atau menghapus pesanan langsung dari panel ini (sesuai kebutuhan Anda).
+
+App\Http\Controllers\MagicLinkController.php
+
+handle(): Mengakses detail pesanan berdasarkan magic_link_token yang unik. Memuat produk dan varian terkait, serta relasi deliverable, untuk menampilkan tautan unduhan yang relevan kepada pembeli.
+
+3. Alur Kerja Aplikasi (Proses Pembelian)
+Etalase (shop.index): Pembeli melihat produk.
+
+Keranjang (shop.addToCart, shop.viewCart):
+
+Pembeli menambahkan produk ke keranjang. Kuantitas diakumulasikan jika produk/varian sudah ada.
+
+Di halaman keranjang, pembeli bisa melihat item, subtotal, dan menerapkan kode voucher yang akan menghitung diskon dan total akhir.
+
+Checkout (shop.checkout):
+
+Pembeli mengisi detail kontak.
+
+Sistem membuat entri Order dan OrderItem di database dalam sebuah transaksi (rollback jika gagal).
+
+tracking_key dan magic_link_token unik digenerate dan disimpan.
+
+Jika voucher diterapkan, diskon dihitung ulang dan disimpan, serta used_count voucher ditingkatkan.
+
+Midtrans Snap Token digenerate.
+
+Job SendWhatsAppNotification (tipe payment_reminder) di-dispatch untuk mengirim link pembayaran ke pembeli.
+
+Pembayaran (via Snap):
+
+Pembeli diarahkan ke pop-up Midtrans Snap.
+
+Pembayaran dilakukan melalui Midtrans.
+
+Notifikasi Midtrans (MidtransWebhookController::handle):
+
+Midtrans mengirim webhook ke aplikasi setelah status pembayaran berubah (pending, settlement, expire, dll.).
+
+Aplikasi memverifikasi notifikasi, mem-parsing order_id (menangani berbagai format), dan memperbarui status order di database.
+
+Jika status menjadi paid, Job SendWhatsAppNotification (tipe payment_success) di-dispatch untuk mengirim konfirmasi dan link unduhan/pelacakan.
+
+Pelacakan Pesanan (shop.trackOrder):
+
+Pembeli dapat mengakses halaman ini langsung dari link WhatsApp (paymentLink me-redirect ke sini dengan auto-snap) atau secara manual.
+
+Jika dari link WhatsApp, Snap akan otomatis muncul untuk order spesifik tersebut. Jika Snap ditutup, hanya order tersebut yang ditampilkan.
+
+Jika pencarian manual, pembeli harus memasukkan Nomor WhatsApp dan tracking_key untuk melihat detail pesanan mereka.
+
+Tampilan menunjukkan status pesanan dan link relevan (lanjutkan pembayaran, unduh produk, dll.).
+
+Unduhan Produk (MagicLinkController::handle):
+
+Pembeli mengakses link unduhan (magic link).
+
+Sistem memverifikasi magic_link_token dan status pesanan (paid).
+
+Menampilkan daftar produk yang dapat diunduh, mengambil file/URL dari relasi `deliver

@@ -14,6 +14,7 @@ use Midtrans\Snap;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; // Import DB facade untuk transaksi
 use App\Jobs\SendWhatsAppNotification;
+use App\Models\Voucher;
 use App\Services\MidtransService;
 
 class ShopController extends Controller
@@ -70,13 +71,12 @@ class ShopController extends Controller
     {
         $cart = Session::get('cart', []);
         $items = [];
-        $totalPrice = 0.0;
+        $subtotalPrice = 0.0; // Mengganti totalPrice menjadi subtotalPrice untuk kejelasan
 
-        foreach ($cart as $key => $entry) { // Tambahkan $key untuk bisa menghapus/mengubah item
+        foreach ($cart as $key => $entry) {
             $product = Product::find($entry['product_id']);
             if (!$product) {
                 Log::warning('Produk tidak ditemukan di database saat melihat keranjang: ID ' . $entry['product_id']);
-                // Hapus item yang tidak valid dari keranjang
                 unset($cart[$key]);
                 Session::put('cart', $cart);
                 continue;
@@ -85,7 +85,7 @@ class ShopController extends Controller
             $variant = null;
             $price = (float) $product->price;
             $itemName = $product->name;
-            $quantity = (int) ($entry['quantity'] ?? 1); // Ambil kuantitas
+            $quantity = (int) ($entry['quantity'] ?? 1);
 
             if (!empty($entry['variant_id'])) {
                 $variant = $product->variants()->find($entry['variant_id']);
@@ -94,7 +94,6 @@ class ShopController extends Controller
                     $itemName .= ' - ' . $variant->name;
                 } else {
                     Log::warning('Varian produk tidak ditemukan di database saat melihat keranjang: ID ' . $entry['variant_id'] . ' untuk Produk ID ' . $entry['product_id']);
-                    // Hapus item yang tidak valid dari keranjang
                     unset($cart[$key]);
                     Session::put('cart', $cart);
                     continue;
@@ -106,13 +105,124 @@ class ShopController extends Controller
                 'variant' => $variant,
                 'price' => $price,
                 'name' => $itemName,
-                'quantity' => $quantity, // Sertakan kuantitas
-                'subtotal' => $price * $quantity, // Hitung subtotal
+                'quantity' => $quantity,
+                'subtotal' => $price * $quantity,
             ];
-            $totalPrice += ($price * $quantity); // Tambahkan ke total harga keranjang
+            $subtotalPrice += ($price * $quantity);
         }
 
-        return view('shop.cart', compact('items', 'totalPrice'));
+        $appliedVoucher = Session::get('applied_voucher');
+        $discountAmount = 0;
+        $finalPrice = $subtotalPrice;
+
+        if ($appliedVoucher) {
+            // Validasi ulang voucher di sini (opsional tapi disarankan)
+            $voucher = Voucher::where('code', $appliedVoucher['code'])->first();
+            if ($voucher && $voucher->expires_at && $voucher->expires_at->isPast()) {
+                Session::forget('applied_voucher'); // Hapus jika kadaluarsa
+                $appliedVoucher = null;
+            } elseif ($voucher && $voucher->usage_limit && $voucher->used_count >= $voucher->usage_limit) {
+                Session::forget('applied_voucher'); // Hapus jika batas penggunaan tercapai
+                $appliedVoucher = null;
+            }
+
+            if ($appliedVoucher) {
+                $discountAmount = (float) $appliedVoucher['discount'];
+                $finalPrice = $subtotalPrice - $discountAmount;
+                if ($finalPrice < 0) $finalPrice = 0; // Pastikan total tidak negatif
+            }
+        }
+
+        // Kirim semua data ke view
+        return view('shop.cart', compact('items', 'subtotalPrice', 'appliedVoucher', 'discountAmount', 'finalPrice'));
+    }
+    /**
+     * Menerapkan kode voucher ke keranjang.
+     */
+    public function applyVoucher(Request $request)
+    {
+        $request->validate([
+            'voucher_code' => 'required|string|max:255',
+        ]);
+
+        $voucherCode = $request->voucher_code;
+        $subtotalPrice = 0;
+
+        // Hitung subtotal keranjang saat ini (dari session)
+        $cart = Session::get('cart', []);
+        if (empty($cart)) {
+            return response()->json(['success' => false, 'error' => 'Keranjang kosong.']);
+        }
+        foreach ($cart as $entry) {
+            $product = Product::find($entry['product_id']);
+            if (!$product) continue;
+            $price = (float) $product->price;
+            if (!empty($entry['variant_id'])) {
+                $variant = $product->variants()->find($entry['variant_id']);
+                if ($variant) $price = (float) $variant->price;
+            }
+            $quantity = (int) ($entry['quantity'] ?? 1);
+            $subtotalPrice += ($price * $quantity);
+        }
+
+        if ($subtotalPrice <= 0) {
+            return response()->json(['success' => false, 'error' => 'Total keranjang harus lebih dari nol untuk menerapkan voucher.']);
+        }
+
+        $voucher = Voucher::where('code', $voucherCode)->first();
+
+        if (!$voucher) {
+            return response()->json(['success' => false, 'error' => 'Kode voucher tidak valid.']);
+        }
+
+        if ($voucher->expires_at && $voucher->expires_at->isPast()) {
+            return response()->json(['success' => false, 'error' => 'Voucher sudah kadaluarsa.']);
+        }
+
+        if ($voucher->usage_limit && $voucher->used_count >= $voucher->usage_limit) {
+            return response()->json(['success' => false, 'error' => 'Voucher sudah mencapai batas penggunaan.']);
+        }
+
+        // Hitung diskon
+        $calculatedDiscount = 0;
+        if ($voucher->discount_type === 'fixed') {
+            $calculatedDiscount = (float) $voucher->value;
+        } elseif ($voucher->discount_type === 'percent') {
+            $calculatedDiscount = ($subtotalPrice * (float) $voucher->value) / 100;
+        }
+
+        // Pastikan diskon tidak melebihi subtotal
+        if ($calculatedDiscount > $subtotalPrice) {
+            $calculatedDiscount = $subtotalPrice;
+        }
+
+        // Simpan voucher di session
+        Session::put('applied_voucher', [
+            'id' => $voucher->id,
+            'code' => $voucher->code,
+            'discount_type' => $voucher->discount_type,
+            'value' => (float) $voucher->value, // Simpan nilai asli voucher
+            'discount' => round($calculatedDiscount), // Simpan diskon yang dihitung (bulatkan ke integer)
+        ]);
+
+        $finalPrice = $subtotalPrice - round($calculatedDiscount);
+        if ($finalPrice < 0) $finalPrice = 0;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Voucher berhasil diterapkan!',
+            'discount_amount' => round($calculatedDiscount),
+            'final_price' => $finalPrice,
+        ]);
+    }
+
+    /**
+     * Menghapus voucher dari keranjang.
+     */
+    public function removeVoucher()
+    {
+        Session::forget('applied_voucher');
+        return response()->json(['success' => true, 'message' => 'Voucher berhasil dihapus.']);
     }
 
     public function checkout(Request $request)
@@ -128,7 +238,7 @@ class ShopController extends Controller
             return response()->json(['error' => 'Keranjang kosong. Silakan tambahkan produk terlebih dahulu.'], 400);
         }
 
-        $total = 0.0;
+        $subtotal = 0.0;
         $midtransItems = [];
 
         DB::beginTransaction();
@@ -166,25 +276,61 @@ class ShopController extends Controller
                     'quantity' => $quantity,
                     'name'     => $itemName,
                 ];
-                $total += ($price * $quantity);
+                $subtotal += ($price * $quantity);
             }
 
-            if ($total <= 0) {
-                throw new \Exception('Total harga pesanan harus lebih dari nol.');
+            if ($subtotal <= 0) {
+                throw new \Exception('Total keranjang harus lebih dari nol.');
             }
 
-            $trackingKey = Str::random(6); // Ini akan menghasilkan string 6 karakter acak (huruf dan angka)
+            $discountAmount = 0;
+            $voucherId = null;
+            $appliedVoucher = Session::get('applied_voucher');
+
+            if ($appliedVoucher) {
+                $voucher = Voucher::find($appliedVoucher['id']); // Ambil voucher dari DB lagi
+                // Validasi ulang voucher sebelum finalisasi order (PENTING!)
+                if (
+                    $voucher && $voucher->code === $appliedVoucher['code'] &&
+                    (!$voucher->expires_at || !$voucher->expires_at->isPast()) &&
+                    (!$voucher->usage_limit || $voucher->used_count < $voucher->usage_limit)
+                ) {
+
+                    $discountAmount = (float) $appliedVoucher['discount'];
+                    $voucherId = $voucher->id;
+
+                    // Pastikan diskon tidak melebihi subtotal
+                    if ($discountAmount > $subtotal) {
+                        $discountAmount = $subtotal;
+                    }
+                } else {
+                    // Voucher tidak valid lagi, hapus dari session
+                    Session::forget('applied_voucher');
+                    Log::warning('Applied voucher became invalid during checkout: ' . ($voucher->code ?? 'N/A'));
+                }
+            }
+
+            $finalTotal = $subtotal - $discountAmount;
+            if ($finalTotal < 0) $finalTotal = 0; // Pastikan total tidak negatif
+
+            $trackingKey = Str::random(6);
 
             $order = Order::create([
                 'buyer_name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'status' => 'pending',
-                'total_price' => $total,
+                'total_price' => $finalTotal, // Gunakan finalTotal setelah diskon
+                'discount_amount' => $discountAmount, // Simpan jumlah diskon
+                'voucher_id' => $voucherId, // Simpan voucher_id
                 'magic_link_token' => Str::uuid(),
                 'tracking_key' => $trackingKey,
             ]);
 
+            // Tingkatkan used_count voucher jika digunakan
+            if ($voucherId) {
+                Voucher::where('id', $voucherId)->increment('used_count');
+            }
 
             foreach ($cart as $entry) {
                 $product = Product::find($entry['product_id']);
@@ -198,20 +344,17 @@ class ShopController extends Controller
                     $variant = $product->variants()->find($entry['variant_id']);
                     if ($variant) {
                         $price_item = (float) $variant->price;
-                        // Jika varian memiliki tipe unduhan, gunakan varian sebagai deliverable
                         if ($variant->downloadable_type && ($variant->file_path || $variant->external_url)) {
-                            $deliverableType = \App\Models\ProductVariant::class; // Nama kelas model varian
+                            $deliverableType = \App\Models\ProductVariant::class;
                             $deliverableId = $variant->id;
                         }
                     } else {
-                        // Varian tidak valid, log dan lewati atau throw error
                         Log::warning('Varian produk tidak ditemukan saat membuat OrderItem: ID ' . $entry['variant_id']);
-                        continue; // Lewati item ini atau throw new \Exception
+                        continue;
                     }
                 } else {
-                    // Jika tidak ada varian, cek apakah produk simple ini dapat diunduh
                     if ($product->type === 'simple' && $product->downloadable_type && ($product->file_path || $product->external_url)) {
-                        $deliverableType = \App\Models\Product::class; // Nama kelas model produk
+                        $deliverableType = \App\Models\Product::class;
                         $deliverableId = $product->id;
                     }
                 }
@@ -222,20 +365,20 @@ class ShopController extends Controller
                     'product_variant_id' => $entry['variant_id'] ?? null,
                     'price' => $price_item,
                     'quantity' => $quantity_item,
-                    'deliverable_type' => $deliverableType, // <<< Mengisi kolom deliverable_type
-                    'deliverable_id' => $deliverableId,     // <<< Mengisi kolom deliverable_id
+                    'deliverable_type' => $deliverableType,
+                    'deliverable_id' => $deliverableId,
                 ]);
             }
 
             Session::forget('cart');
+            Session::forget('applied_voucher'); // Hapus voucher dari session setelah sukses
 
-            // Panggil MidtransService untuk konfigurasi
             MidtransService::configure();
 
             $transaction = [
                 'transaction_details' => [
                     'order_id' => 'ORDER-' . $order->id . '-' . time(),
-                    'gross_amount' => $total,
+                    'gross_amount' => $finalTotal, // Gunakan finalTotal untuk Midtrans
                 ],
                 'customer_details' => [
                     'first_name' => $order->buyer_name,

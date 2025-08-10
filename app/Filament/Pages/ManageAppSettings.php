@@ -23,6 +23,7 @@ class ManageAppSettings extends Page
     protected static ?string $navigationGroup = 'Pengaturan';
     protected static string $view = 'filament.pages.manage-app-settings';
     protected static ?string $navigationLabel = 'Pengaturan Aplikasi';
+    protected static ?int $navigationSort = 2; // Urutan di dalam grup navigasi
 
     public array $data = [];
     public ?string $midtransLog = null;

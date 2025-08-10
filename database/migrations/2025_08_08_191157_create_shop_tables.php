@@ -27,8 +27,8 @@ return new class extends Migration {
             $table->text('description')->nullable()->comment('Deskripsi produk');
             $table->enum('type', ['simple', 'variant'])->comment('Tipe produk: simple (tanpa varian), variant (dengan varian)');
             $table->string('main_image')->nullable()->comment('Path gambar utama produk');
-            $table->decimal('price', 12, 0)->nullable()->comment('Harga produk (tanpa desimal)'); // <<< DECIMAL (X,0)
-            $table->decimal('discount_price', 12, 0)->nullable()->comment('Harga diskon produk (tanpa desimal)'); // <<< DECIMAL (X,0)
+            $table->decimal('price', 12, 0)->nullable()->comment('Harga produk (tanpa desimal)');
+            $table->decimal('discount_price', 12, 0)->nullable()->comment('Harga diskon produk (tanpa desimal)');
 
             // Kolom SEO
             $table->string('seo_title')->nullable();
@@ -40,7 +40,7 @@ return new class extends Migration {
             $table->enum('downloadable_type', ['file', 'link'])->nullable()->comment('Tipe unduhan: file (lokal) atau link (eksternal)');
             $table->string('file_path')->nullable()->comment('Path file jika downloadable_type adalah file');
             $table->string('external_url')->nullable()->comment('URL eksternal jika downloadable_type adalah link');
-            $table->string('download_url')->nullable()->comment('URL unduhan langsung (opsional, bisa untuk magic link)'); // Kolom tambahan dari migrasi Anda
+            $table->string('download_url')->nullable()->comment('URL unduhan langsung (opsional, bisa untuk magic link)');
 
             $table->timestamps();
             $table->softDeletes()->comment('Timestamp untuk soft delete');
@@ -51,7 +51,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('product_id')->constrained()->onDelete('cascade')->comment('Foreign key ke tabel products');
             $table->string('name')->comment('Nama varian (contoh: Warna Merah, Ukuran L)');
-            $table->decimal('price', 12, 0)->comment('Harga varian (tanpa desimal)'); // <<< DECIMAL (X,0)
+            $table->decimal('price', 12, 0)->comment('Harga varian (tanpa desimal)');
             $table->string('image')->nullable()->comment('Path gambar varian');
 
             // Kolom untuk varian produk digital/downloadable
@@ -69,6 +69,8 @@ return new class extends Migration {
             $table->enum('discount_type', ['fixed', 'percent'])->comment('Tipe diskon: fixed (jumlah tetap) atau percent (persentase)');
             $table->decimal('value', 10, 0)->comment('Nilai diskon (tanpa desimal)'); // <<< DECIMAL (X,0)
             $table->dateTime('expires_at')->nullable()->comment('Tanggal kadaluarsa voucher');
+            $table->integer('usage_limit')->nullable()->comment('Batas total penggunaan voucher'); // <<< Tambahan
+            $table->integer('used_count')->default(0)->comment('Jumlah voucher yang sudah digunakan'); // <<< Tambahan
             $table->timestamps();
         });
 
@@ -97,10 +99,12 @@ return new class extends Migration {
             $table->string('phone')->comment('Nomor telepon pembeli');
             $table->string('email')->nullable()->comment('Email pembeli');
             $table->string('magic_link_token')->unique()->comment('Token unik untuk magic link order');
-            $table->string('tracking_key', 6)->nullable()->comment('Kunci 6 digit untuk pelacakan pesanan oleh pembeli');
-            $table->enum('status', ['pending', 'paid', 'expired', 'cancelled', 'denied', 'challenge'])->default('pending')->comment('Status pembayaran order'); // Menambahkan status 'cancelled', 'denied', 'challenge'
-            $table->decimal('total_price', 10, 0)->default(0)->comment('Total harga order (tanpa desimal)'); // <<< DECIMAL (X,0)
-            $table->json('payment_info')->nullable()->comment('Payload JSON dari notifikasi pembayaran (contoh: Midtrans)'); // Kolom tambahan dari migrasi Anda
+            $table->string('tracking_key', 6)->nullable()->comment('Kunci 6 digit untuk pelacakan pesanan oleh pembeli'); // <<< Tambahan
+            $table->enum('status', ['pending', 'paid', 'expired', 'cancelled', 'denied', 'challenge'])->default('pending')->comment('Status pembayaran order');
+            $table->decimal('total_price', 10, 0)->default(0)->comment('Total harga order (tanpa desimal)');
+            $table->decimal('discount_amount', 10, 0)->nullable()->comment('Jumlah diskon yang diterapkan pada order (tanpa desimal)'); // <<< Tambahan
+            $table->foreignId('voucher_id')->nullable()->constrained('vouchers')->onDelete('set null')->comment('Foreign key ke voucher yang digunakan'); // <<< Tambahan
+            $table->json('payment_info')->nullable()->comment('Payload JSON dari notifikasi pembayaran (contoh: Midtrans)');
             $table->timestamps();
             $table->softDeletes()->comment('Timestamp untuk soft delete');
         });
@@ -111,14 +115,13 @@ return new class extends Migration {
             $table->foreignId('order_id')->constrained()->onDelete('cascade')->comment('Foreign key ke tabel orders');
             $table->foreignId('product_id')->constrained()->onDelete('cascade')->comment('Foreign key ke tabel products');
             $table->foreignId('product_variant_id')->nullable()->constrained()->onDelete('cascade')->comment('Foreign key ke tabel product_variants');
-            $table->decimal('price', 10, 0)->comment('Harga item saat order dibuat (tanpa desimal)'); // <<< DECIMAL (X,0)
-            $table->integer('quantity')->default(1)->comment('Kuantitas item yang dibeli'); // <<< Kolom quantity
+            $table->decimal('price', 10, 0)->comment('Harga item saat order dibuat (tanpa desimal)');
+            $table->integer('quantity')->default(1)->comment('Kuantitas item yang dibeli');
 
-            // PERBAIKAN: Buat kolom deliverable_type dan deliverable_id secara eksplisit
-            // dan tambahkan komentar pada masing-masing.
+            // Kolom untuk polymorphic relation deliverable
             $table->string('deliverable_type')->nullable()->comment('Tipe model untuk item yang dapat di-deliver (polymorphic relation)');
             $table->unsignedBigInteger('deliverable_id')->nullable()->comment('ID dari model yang dapat di-deliver (polymorphic relation)');
-            $table->index(['deliverable_type', 'deliverable_id']); // Tambahkan index untuk polymorphic relation
+            $table->index(['deliverable_type', 'deliverable_id']);
 
             $table->timestamps();
         });
@@ -132,10 +135,6 @@ return new class extends Migration {
             $table->timestamp('sent_at')->nullable()->comment('Waktu notifikasi dikirim');
             $table->timestamps();
         });
-
-        // Catatan: Tabel 'users', 'cache', 'cache_locks', 'failed_jobs', 'migrations', 'password_reset_tokens', 'sessions', 'jobs', 'job_batches'
-        // biasanya dibuat oleh migrasi Laravel standar atau Artisan commands.
-        // Pastikan migrasi standar Laravel sudah ada dan dijalankan terlebih dahulu.
     }
 
     /**
@@ -154,6 +153,6 @@ return new class extends Migration {
         Schema::dropIfExists('vouchers');
         Schema::dropIfExists('product_variants');
         Schema::dropIfExists('products');
-        Schema::dropIfExists('app_settings'); // Drop app_settings terakhir jika dibuat pertama
+        Schema::dropIfExists('app_settings');
     }
 };

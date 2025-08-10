@@ -23,8 +23,10 @@ use Filament\Forms\Get;
 class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
+    protected static ?string $navigationGroup = 'Manajemen Toko'; // Kelompokkan di navigasi admin
 
     protected static ?string $navigationIcon = 'heroicon-o-cube';
+    protected static ?int $navigationSort = 1; // Urutan di dalam grup navigasi
 
     public static function form(Form $form): Form
     {

@@ -19,9 +19,12 @@ Route::get('/shop', [ShopController::class, 'index']); // Alias
 // Keranjang
 Route::post('/cart/add', [ShopController::class, 'addToCart'])->name('shop.addToCart');
 Route::get('/cart', [ShopController::class, 'viewCart'])->name('shop.cart');
-Route::post('/cart/update', [ShopController::class, 'updateCart'])->name('shop.cart.update');
+// Route::post('/cart/update', [ShopController::class, 'updateCart'])->name('shop.cart.update'); // Ini sepertinya tidak ada di ShopController yang sekarang, bisa dihapus jika tidak digunakan
 
-Route::post('/voucher/check', [ShopController::class, 'checkVoucher'])->name('shop.voucher.check');
+// Voucher
+Route::post('/voucher/apply', [ShopController::class, 'applyVoucher'])->name('shop.applyVoucher'); // <<< Rute baru untuk menerapkan voucher
+Route::post('/voucher/remove', [ShopController::class, 'removeVoucher'])->name('shop.removeVoucher'); // <<< Rute baru untuk menghapus voucher
+// Route::post('/voucher/check', [ShopController::class, 'checkVoucher'])->name('shop.voucher.check'); // Ini sepertinya tidak ada di ShopController yang sekarang, bisa dihapus jika tidak digunakan
 
 // Checkout (AJAX menghasilkan Snap Token)
 Route::post('/checkout', [ShopController::class, 'checkout'])->name('shop.checkout');
@@ -32,11 +35,10 @@ Route::get('/thank-you', [ShopController::class, 'thankYou'])->name('shop.thanky
 // Magic link download
 Route::get('/magic-link/{token}', [MagicLinkController::class, 'handle'])->name('magic.link');
 
-//payment dari whatsApp
+// Payment dari WhatsApp (redirect ke lacak pesanan)
 Route::get('/payment/{order}', [ShopController::class, 'paymentLink'])->name('shop.paymentLink');
 
-// Rute baru untuk Lacak Pesanan
+// Lacak Pesanan
 Route::get('/track-order', [ShopController::class, 'trackOrder'])->name('shop.trackOrder');
-
-// Untuk memproses pencarian
-Route::post('/track-order', [ShopController::class, 'trackOrder'])->name('shop.trackOrder.post')->middleware('throttle:10,1'); // 5 attempts per minute
+// Untuk memproses pencarian (dengan throttle)
+Route::post('/track-order', [ShopController::class, 'trackOrder'])->name('shop.trackOrder.post')->middleware('throttle:10,1'); // 10 attempts per minute

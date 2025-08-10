@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class OrderItem extends Model
@@ -18,26 +19,27 @@ class OrderItem extends Model
     ];
 
     protected $casts = [
-        'price' => 'decimal:0', // <<< Tambahkan ini, sesuaikan dengan decimal(X,0) di migrasi
-        'quantity' => 'integer', // <<< Tambahkan ini
+        'price' => 'integer', // Sesuai decimal(X,0)
+        'quantity' => 'integer',
     ];
 
-    public function order()
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
     public function deliverable(): MorphTo
     {
+        // Pastikan nama relasi di sini cocok dengan yang di migrasi (deliverable_type, deliverable_id)
         return $this->morphTo();
     }
 
-    public function product()
+    public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
-    public function variant()
+    public function variant(): BelongsTo
     {
         return $this->belongsTo(\App\Models\ProductVariant::class, 'product_variant_id');
     }

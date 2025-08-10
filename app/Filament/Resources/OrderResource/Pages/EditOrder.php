@@ -13,7 +13,8 @@ class EditOrder extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            Actions\ViewAction::make(), // Tambahkan tombol View jika Anda punya halaman View terpisah
+            Actions\DeleteAction::make(), // Biarkan Delete jika ingin admin bisa menghapus individual
         ];
     }
 }
