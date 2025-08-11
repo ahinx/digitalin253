@@ -1,213 +1,221 @@
-@extends('layouts.app')
+<!-- =============================================================
+File: resources/views/shop/cart.blade.php
+Memakai variabel dari ShopController@viewCart.
+============================================================== -->
+@extends('layouts.storefront')
+
 @section('content')
-<div class="max-w-2xl mx-auto p-4">
-    <h1 class="text-xl font-bold mb-4">Keranjang Belanja</h1>
-    @if(count($items))
-    <div class="space-y-4">
-        @foreach($items as $item)
-        <div class="flex justify-between items-center border p-2 rounded-md shadow-sm">
-            <div>
-                <strong>{{ $item['product']->name }}</strong>
-                @if($item['variant']) <p class="text-sm text-gray-600">Varian: {{ $item['variant']->name }}</p> @endif
-                <p class="text-sm text-gray-700">Kuantitas: {{ $item['quantity'] }}</p>
+<div class="max-w-4xl mx-auto px-4 md:px-6 py-4 md:py-8">
+    <h1 class="text-lg md:text-2xl font-semibold mb-4">Keranjang</h1>
+
+    @if(!empty($items))
+    <div class="space-y-3">
+        @foreach($items as $it)
+        @php
+        // Tentukan gambar: varian > produk
+        $img = isset($it['variant']) && $it['variant']
+        ? variant_image_url($it['variant'], $it['product']->main_image ?? null)
+        : product_image_url($it['product'] ?? null);
+
+        // Nama aman
+        $name = $it['name'] ?? ($it['product']->name ?? 'Produk');
+        if (is_array($name)) $name = implode(', ', $name);
+
+        $price = (float)($it['price'] ?? 0);
+        $qty = (int)($it['quantity'] ?? 1);
+        $subtotal = (float)($it['subtotal'] ?? ($price * $qty));
+
+        $productId = $it['product']->id ?? null;
+        $variantId = $it['variant']->id ?? null;
+        @endphp
+
+        <div class="rounded-2xl border border-gray-100 bg-white p-3 md:p-4 flex gap-3">
+            <div class="h-16 w-16 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                <img src="{{ $img }}" class="h-full w-full object-cover" alt="{{ $name }}">
             </div>
-            <div class="text-right">
-                <p>Rp{{ number_format($item['price'], 0, ',', '.') }}</p>
-                <p class="font-semibold">Subtotal: Rp{{ number_format($item['subtotal'], 0, ',', '.') }}</p>
+
+            <div class="flex-1 min-w-0">
+                <div class="font-medium line-clamp-2">{{ $name }}</div>
+                <div class="text-sm text-gray-500">
+                    Rp{{ number_format($price,0,',','.') }} × {{ $qty }}
+                    @if($variantId)
+                    <span
+                        class="ml-2 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">Varian</span>
+                    @endif
+                </div>
+                <div class="mt-1 font-semibold">Subtotal: Rp{{ number_format($subtotal,0,',','.') }}</div>
+
+                <div class="mt-2 flex flex-wrap gap-2">
+                    <button class="px-3 h-8 rounded-lg border text-sm" data-action="dec" data-product="{{ $productId }}"
+                        data-variant="{{ $variantId ?? '' }}">−</button>
+
+                    <button class="px-3 h-8 rounded-lg border text-sm" data-action="inc" data-product="{{ $productId }}"
+                        data-variant="{{ $variantId ?? '' }}">+</button>
+
+                    <button class="px-3 h-8 rounded-lg border text-sm" data-action="remove"
+                        data-product="{{ $productId }}" data-variant="{{ $variantId ?? '' }}">Hapus</button>
+                </div>
             </div>
         </div>
         @endforeach
     </div>
 
-    <div class="mt-6 border-t pt-4">
-        <p class="text-right font-bold text-lg">Subtotal Keranjang: <span id="subtotal_display">Rp{{
-                number_format($subtotalPrice, 0, ',', '.') }}</span></p>
-
-        {{-- Bagian Voucher --}}
-        <div class="mt-4 p-4 border rounded-md bg-gray-50">
-            <h2 class="font-semibold mb-2">Punya Kode Voucher?</h2>
-            <div class="flex space-x-2">
-                <input type="text" id="voucher_code_input" class="flex-grow border p-2 rounded-md"
-                    placeholder="Masukkan Kode Voucher">
-                <button type="button" onclick="applyVoucher()"
-                    class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Terapkan</button>
-            </div>
-            <div id="voucher_message" class="mt-2 text-sm"></div>
-
+    {{-- Voucher --}}
+    <div class="mt-4 rounded-2xl border border-gray-100 bg-white p-3 md:p-4">
+        <form id="voucher-form" class="flex gap-2">
+            <input name="voucher_code" placeholder="Kode voucher" value="{{ $appliedVoucher['code'] ?? '' }}"
+                class="flex-1 rounded-xl border border-gray-200 py-2 px-3 text-sm">
+            <button type="submit" class="rounded-xl bg-gray-900 text-white px-4">Terapkan</button>
             @if($appliedVoucher)
-            <div id="applied_voucher_display"
-                class="mt-3 p-2 bg-green-100 border border-green-300 text-green-800 rounded-md flex justify-between items-center">
-                <span>Voucher *{{ $appliedVoucher['code'] }}* diterapkan!</span>
-                <button type="button" onclick="removeVoucher()"
-                    class="text-red-600 hover:text-red-800 font-semibold text-sm">Hapus</button>
-            </div>
-            @else
-            <div id="applied_voucher_display" style="display: none;"></div>
+            <button type="button" id="remove-voucher" class="rounded-xl border px-4">Hapus</button>
             @endif
-        </div>
+        </form>
 
-        <p class="mt-2 text-right font-bold text-red-500 text-lg">Diskon Voucher: - <span id="discount_display">Rp{{
-                number_format($discountAmount, 0, ',', '.') }}</span></p>
-        <p class="mt-2 text-right font-bold text-2xl">Total Pembayaran: <span id="final_total_display">Rp{{
-                number_format($finalPrice, 0, ',', '.') }}</span></p>
+        @if($appliedVoucher)
+        <div class="mt-2 text-sm text-green-700">
+            Voucher <span class="font-semibold">{{ $appliedVoucher['code'] }}</span> diterapkan:
+            −Rp{{ number_format($discountAmount,0,',','.') }}
+        </div>
+        @endif
     </div>
 
-    <form id="checkout-form" class="space-y-2 mt-6">
-        @csrf
-        <input type="text" name="name" class="w-full border p-2 rounded-md" placeholder="Nama" required>
-        <input type="email" name="email" class="w-full border p-2 rounded-md" placeholder="Email" required>
-        <input type="text" name="phone" class="w-full border p-2 rounded-md" placeholder="No. HP" required>
-        {{-- Input tersembunyi untuk menyimpan ID voucher yang diterapkan --}}
-        <input type="hidden" name="voucher_id" id="hidden_voucher_id" value="{{ $appliedVoucher['id'] ?? '' }}">
-        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md w-full hover:bg-green-700">Bayar
-            Sekarang</button>
+    {{-- Total --}}
+    <div class="mt-4 rounded-2xl border border-gray-100 bg-white p-3 md:p-4 space-y-1">
+        <div class="flex justify-between">
+            <span>Subtotal</span>
+            <span>Rp{{ number_format((float)$subtotalPrice,0,',','.') }}</span>
+        </div>
+        <div class="flex justify-between">
+            <span>Diskon</span>
+            <span>−Rp{{ number_format((float)$discountAmount,0,',','.') }}</span>
+        </div>
+        <div class="mt-2 text-lg font-bold flex justify-between">
+            <span>Total</span>
+            <span>Rp{{ number_format((float)$finalPrice,0,',','.') }}</span>
+        </div>
+    </div>
+
+    {{-- Checkout form --}}
+    <form id="checkout-form" class="mt-4 grid md:grid-cols-3 gap-3">
+        <input name="name" class="rounded-xl border border-gray-200 py-2 px-3" placeholder="Nama" required>
+        <input name="email" type="email" class="rounded-xl border border-gray-200 py-2 px-3" placeholder="Email"
+            required>
+        <input name="phone" class="rounded-xl border border-gray-200 py-2 px-3" placeholder="No WhatsApp (628…)"
+            required>
+        <button class="md:col-span-3 h-11 rounded-xl bg-blue-600 text-white font-semibold">Bayar (Midtrans)</button>
     </form>
-
-    <script src="https://app.sandbox.midtrans.com/snap/snap.js"
-        data-client-key="{{ config('services.midtrans.client_key') }}"></script>
-    <script>
-        // Fungsi untuk memformat angka menjadi format mata uang Rupiah
-        function formatRupiah(angka) {
-            var reverse = angka.toString().split('').reverse().join(''),
-                ribuan = reverse.match(/\d{1,3}/g);
-            ribuan = ribuan.join('.').split('').reverse().join('');
-            return 'Rp' + ribuan;
-        }
-
-        async function applyVoucher() {
-            const voucherCode = document.getElementById('voucher_code_input').value;
-            const voucherMessage = document.getElementById('voucher_message');
-            const subtotalPrice = {{ $subtotalPrice }}; // Ambil subtotal dari Blade
-
-            if (!voucherCode) {
-                voucherMessage.className = 'mt-2 text-sm text-red-500';
-                voucherMessage.textContent = 'Kode voucher tidak boleh kosong.';
-                return;
-            }
-
-            voucherMessage.className = 'mt-2 text-sm text-gray-500';
-            voucherMessage.textContent = 'Menerapkan voucher...';
-
-            try {
-                const response = await fetch('{{ secure_url(route('shop.applyVoucher', [], false)) }}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ voucher_code: voucherCode })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    voucherMessage.className = 'mt-2 text-sm text-green-600';
-                    voucherMessage.textContent = data.message;
-                    document.getElementById('discount_display').textContent = formatRupiah(data.discount_amount);
-                    document.getElementById('final_total_display').textContent = formatRupiah(data.final_price);
-                    document.getElementById('hidden_voucher_id').value = data.voucher_id; // Set hidden input
-
-                    // Tampilkan display voucher yang diterapkan
-                    const appliedVoucherDisplay = document.getElementById('applied_voucher_display');
-                    appliedVoucherDisplay.style.display = 'flex';
-                    appliedVoucherDisplay.className = 'mt-3 p-2 bg-green-100 border border-green-300 text-green-800 rounded-md flex justify-between items-center';
-                    appliedVoucherDisplay.innerHTML = `
-                        <span>Voucher *${voucherCode}* diterapkan!</span>
-                        <button type="button" onclick="removeVoucher()" class="text-red-600 hover:text-red-800 font-semibold text-sm">Hapus</button>
-                    `;
-
-                } else {
-                    voucherMessage.className = 'mt-2 text-sm text-red-500';
-                    voucherMessage.textContent = data.error;
-                    // Reset diskon dan total jika voucher gagal
-                    document.getElementById('discount_display').textContent = formatRupiah(0);
-                    document.getElementById('final_total_display').textContent = formatRupiah(subtotalPrice);
-                    document.getElementById('hidden_voucher_id').value = ''; // Clear hidden input
-                    document.getElementById('applied_voucher_display').style.display = 'none';
-                }
-            } catch (error) {
-                console.error('Error applying voucher:', error);
-                voucherMessage.className = 'mt-2 text-sm text-red-500';
-                voucherMessage.textContent = 'Terjadi kesalahan saat menerapkan voucher.';
-                // Reset diskon dan total jika ada error
-                document.getElementById('discount_display').textContent = formatRupiah(0);
-                document.getElementById('final_total_display').textContent = formatRupiah(subtotalPrice);
-                document.getElementById('hidden_voucher_id').value = ''; // Clear hidden input
-                document.getElementById('applied_voucher_display').style.display = 'none';
-            }
-        }
-
-        async function removeVoucher() {
-            const voucherMessage = document.getElementById('voucher_message');
-            const subtotalPrice = {{ $subtotalPrice }};
-
-            voucherMessage.className = 'mt-2 text-sm text-gray-500';
-            voucherMessage.textContent = 'Menghapus voucher...';
-
-            try {
-                const response = await fetch('{{ secure_url(route('shop.removeVoucher', [], false)) }}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    }
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    voucherMessage.className = 'mt-2 text-sm text-green-600';
-                    voucherMessage.textContent = data.message;
-                    document.getElementById('discount_display').textContent = formatRupiah(0);
-                    document.getElementById('final_total_display').textContent = formatRupiah(subtotalPrice);
-                    document.getElementById('hidden_voucher_id').value = ''; // Clear hidden input
-                    document.getElementById('voucher_code_input').value = ''; // Clear voucher input
-                    document.getElementById('applied_voucher_display').style.display = 'none';
-                } else {
-                    voucherMessage.className = 'mt-2 text-sm text-red-500';
-                    voucherMessage.textContent = data.error || 'Gagal menghapus voucher.';
-                }
-            } catch (error) {
-                console.error('Error removing voucher:', error);
-                voucherMessage.className = 'mt-2 text-sm text-red-500';
-                voucherMessage.textContent = 'Terjadi kesalahan saat menghapus voucher.';
-            }
-        }
-
-        document.getElementById('checkout-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            // formData sudah otomatis menyertakan hidden_voucher_id karena ada di dalam form
-
-            const response = await fetch('{{ secure_url(route('shop.checkout', [], false)) }}', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json'
-                },
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (data.snapToken) {
-                snap.pay(data.snapToken, {
-                    onSuccess: () => window.location.href = '/thank-you?order_id=' + data.orderId,
-                    onError: () => alert('Pembayaran gagal.'),
-                    onPending: () => window.location.href = '/thank-you?order_id=' + data.orderId, // Redirect ke thank you juga untuk pending
-                    onClose: () => console.log('Pembayaran ditutup.') // Jangan alert atau redirect otomatis
-                });
-            } else {
-                // Tampilkan error dari backend
-                alert(data.error || 'Checkout gagal');
-            }
-        });
-    </script>
-
     @else
-    <p>Keranjang kosong.</p>
+    <div class="text-sm text-gray-500">Keranjang kosong.</div>
     @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    // --- Update cart (+ / − / Hapus)
+  document.querySelectorAll('[data-action]')?.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const body = {
+        product_id: btn.dataset.product,
+        variant_id: btn.dataset.variant || null,
+        action: btn.dataset.action,
+      };
+
+      try {
+        const res  = await fetch('{{ route('shop.cart.update') }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type':'application/json',
+            'Accept':'application/json',
+            'X-CSRF-TOKEN':'{{ csrf_token() }}'
+          },
+          body: JSON.stringify(body)
+        });
+        const json = await res.json();
+        if (json.success) {
+          location.reload();
+        } else {
+          alert(json.error || 'Gagal memperbarui keranjang');
+        }
+      } catch (e) {
+        alert('Terjadi kesalahan jaringan.');
+      }
+    });
+  });
+
+  // --- Voucher apply
+  document.getElementById('voucher-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = e.target.voucher_code.value.trim();
+    if (!code) return;
+
+    try {
+      const res = await fetch('{{ route('shop.applyVoucher') }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type':'application/json',
+          'Accept':'application/json',
+          'X-CSRF-TOKEN':'{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ voucher_code: code })
+      });
+      const json = await res.json();
+      if (json.success) {
+        location.reload();
+      } else {
+        alert(json.error || 'Gagal menerapkan voucher');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan jaringan.');
+    }
+  });
+
+  // --- Voucher remove
+  document.getElementById('remove-voucher')?.addEventListener('click', async () => {
+    try {
+      const res  = await fetch('{{ route('shop.removeVoucher') }}', {
+        method: 'POST',
+        headers: { 'Accept':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}' }
+      });
+      const json = await res.json();
+      if (json.success) {
+        location.reload();
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan jaringan.');
+    }
+  });
+
+  // --- Checkout (minta Snap token lalu bayar)
+  document.getElementById('checkout-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+
+    try {
+      const res  = await fetch('{{ route('shop.checkout') }}', {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN':'{{ csrf_token() }}' },
+        body: fd
+      });
+      const json = await res.json();
+
+      if (json.snapToken) {
+        if (typeof window.snap === 'undefined') {
+          alert('Snap belum dimuat.');
+          return;
+        }
+        window.snap.pay(json.snapToken, {
+          onSuccess:  () => window.location.href = "{{ route('shop.thankyou') }}?order_id=" + json.orderId,
+          onPending:  () => window.location.href = "{{ route('shop.thankyou') }}?order_id=" + json.orderId,
+          onError:    () => alert('Pembayaran gagal, coba lagi.'),
+          onClose:    () => {} // optional
+        });
+      } else {
+        alert(json.error || 'Gagal checkout');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan jaringan.');
+    }
+  });
+</script>
+@endpush

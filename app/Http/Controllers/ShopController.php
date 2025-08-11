@@ -136,6 +136,65 @@ class ShopController extends Controller
         // Kirim semua data ke view
         return view('shop.cart', compact('items', 'subtotalPrice', 'appliedVoucher', 'discountAmount', 'finalPrice'));
     }
+
+
+    /**
+     * Memperbarui kuantitas item di keranjang atau menghapusnya.
+     */
+    public function updateCart(Request $request)
+    {
+        $data = $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'variant_id' => 'nullable|exists:product_variants,id',
+            'action' => 'required|in:inc,dec,remove', // increment, decrement, remove
+        ]);
+
+        $cart = Session::get('cart', []);
+        $itemKey = null;
+
+        // Cari item di keranjang
+        foreach ($cart as $key => $item) {
+            if ($item['product_id'] == $data['product_id'] && ($item['variant_id'] ?? null) == ($data['variant_id'] ?? null)) {
+                $itemKey = $key;
+                break;
+            }
+        }
+
+        if ($itemKey === null) {
+            return response()->json(['success' => false, 'error' => 'Item tidak ditemukan di keranjang.'], 404);
+        }
+
+        DB::beginTransaction();
+        try {
+            if ($data['action'] === 'inc') {
+                $cart[$itemKey]['quantity'] = ($cart[$itemKey]['quantity'] ?? 1) + 1;
+            } elseif ($data['action'] === 'dec') {
+                $cart[$itemKey]['quantity'] = ($cart[$itemKey]['quantity'] ?? 1) - 1;
+                if ($cart[$itemKey]['quantity'] <= 0) {
+                    unset($cart[$itemKey]); // Hapus jika kuantitas <= 0
+                }
+            } elseif ($data['action'] === 'remove') {
+                unset($cart[$itemKey]);
+            }
+
+            // Re-index array setelah unset
+            $cart = array_values($cart);
+            Session::put('cart', $cart);
+            DB::commit();
+
+            // Hitung kembali jumlah item di keranjang untuk badge
+            $cartCount = array_sum(array_column($cart, 'quantity'));
+
+            return response()->json(['success' => true, 'count' => $cartCount]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to update cart item: ' . $e->getMessage(), ['request' => $request->all()]);
+            return response()->json(['success' => false, 'error' => 'Gagal memperbarui item keranjang. Silakan coba lagi.'], 500);
+        }
+    }
+
+
+
     /**
      * Menerapkan kode voucher ke keranjang.
      */
@@ -403,6 +462,20 @@ class ShopController extends Controller
             Log::error('Checkout failed: ' . $e->getMessage(), ['cart' => $cart, 'request' => $request->all()]);
             return response()->json(['error' => 'Gagal memproses pesanan: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Menampilkan detail produk berdasarkan slug.
+     *
+     * @param \App\Models\Product $product
+     * @return \Illuminate\Contracts\View\View
+     */
+    public function show(Product $product)
+    {
+        // Eager load varian produk jika ada
+        $product->loadMissing('variants');
+
+        return view('shop.show', compact('product'));
     }
 
     public function paymentLink(Order $order)

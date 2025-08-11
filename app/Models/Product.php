@@ -21,9 +21,13 @@ class Product extends Model
         'seo_description',
         'seo_keywords',
         'seo_image_alt',
-        'downloadable_type', // ⬅ tambahkan ini
-        'file_path',         // ⬅ dan ini
-        'external_url',      // ⬅ dan ini
+        'downloadable_type',
+        'file_path',
+        'external_url',
+    ];
+
+    protected $casts = [
+        'main_image' => 'array', // ['large' => ..., 'thumb' => ...]
     ];
 
     public function variants()

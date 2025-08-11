@@ -13,7 +13,16 @@ class CreateOrder extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        Log::info('Create Order - form data:', $data);
+        Log::info('Form data before create mutation:', $data);
+
+        // Jika file_path tidak ada, set null
+        if (($data['downloadable_type'] ?? null) !== 'file') {
+            $data['file_path'] = null;
+        }
+        if (($data['downloadable_type'] ?? null) !== 'link') {
+            $data['external_url'] = null;
+        }
+
         return $data;
     }
 

@@ -1,278 +1,154 @@
-@extends('layouts.app')
+<!-- =============================================================
+File: resources/views/shop/track-order.blade.php
+Memakai variabel dari ShopController@trackOrder.
+============================================================== -->
+@extends('layouts.storefront')
 
 @section('content')
-<style>
-    .track-order-container {
-        background-color: #ffffff;
-        padding: 2.5rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        width: 100%;
-        max-width: 48rem;
-        text-align: center;
-        margin-bottom: 2rem;
-        margin-left: auto;
-        margin-right: auto;
-    }
+<div class="max-w-5xl mx-auto px-4 md:px-6 py-6">
+    <h1 class="text-lg md:text-2xl font-semibold mb-4">Lacak Pesanan</h1>
 
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-
-    .input-field {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #d1d5db;
-        /* gray-300 */
-        border-radius: 0.375rem;
-        /* rounded-md */
-        box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        /* shadow-sm */
-        font-size: 1rem;
-    }
-
-    .button-primary {
-        background-color: #3b82f6;
-        /* blue-500 */
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 0.5rem;
-        font-weight: 600;
-        transition: background-color 0.3s ease;
-        cursor: pointer;
-        border: none;
-        width: 100%;
-    }
-
-    .button-primary:hover {
-        background-color: #2563eb;
-        /* blue-600 */
-    }
-
-    .order-card {
-        background-color: #ffffff;
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        margin-bottom: 1rem;
-        text-align: left;
-        border-left: 5px solid;
-    }
-
-    .order-card.pending {
-        border-color: #9ca3af;
-        /* gray-400 */
-    }
-
-    .order-card.paid {
-        border-color: #10b981;
-        /* emerald-500 */
-    }
-
-    .order-card.expired {
-        border-color: #f59e0b;
-        /* amber-500 */
-    }
-
-    .order-card.cancelled {
-        border-color: #ef4444;
-        /* red-500 */
-    }
-
-    .order-card.denied {
-        border-color: #dc2626;
-        /* red-600 */
-    }
-
-    .badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        /* full */
-        font-size: 0.875rem;
-        font-weight: 600;
-        line-height: 1;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .badge-gray {
-        background-color: #e5e7eb;
-        color: #4b5563;
-    }
-
-    /* gray-200, gray-700 */
-    .badge-green {
-        background-color: #d1fae5;
-        color: #059669;
-    }
-
-    /* green-100, green-700 */
-    .badge-yellow {
-        background-color: #fef3c7;
-        color: #b45309;
-    }
-
-    /* yellow-100, yellow-800 */
-    .badge-red {
-        background-color: #fee2e2;
-        color: #dc2626;
-    }
-
-    /* red-100, red-600 */
-    .link-style {
-        color: #3b82f6;
-        text-decoration: underline;
-        font-weight: 500;
-    }
-</style>
-
-<div class="track-order-container">
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">Lacak Pesanan Anda</h1>
-
-    <form action="{{ route('shop.trackOrder.post') }}" method="POST" class="w-full">
+    {{-- Form cari --}}
+    <form action="{{ route('shop.trackOrder.post') }}" method="POST" class="grid md:grid-cols-3 gap-3">
         @csrf
-        <div class="form-group">
-            <label for="phone" class="block text-gray-700 text-sm font-bold mb-2 text-left">
-                Nomor WhatsApp (misal: 628123456789)
-            </label>
-            <input type="text" id="phone" name="phone" value="{{ old('phone', $phone) }}" class="input-field"
-                placeholder="Masukkan nomor WhatsApp Anda" required>
-        </div>
-        <div class="form-group">
-            <label for="tracking_key" class="block text-gray-700 text-sm font-bold mb-2 text-left">
-                Kunci Pelacakan (6 Digit dari WhatsApp)
-            </label>
-            <input type="text" id="tracking_key" name="tracking_key"
-                value="{{ old('tracking_key', $trackingKeyInput) }}" class="input-field"
-                placeholder="Masukkan kunci pelacakan Anda (misal: ABC123)" maxlength="6">
-        </div>
-        <button type="submit" class="button-primary">Cari Pesanan</button>
+        <input name="phone" value="{{ old('phone', $phone) }}" placeholder="No WhatsApp (628…)"
+            class="rounded-xl border border-gray-200 py-2 px-3" required>
+        <input name="tracking_key" value="{{ old('tracking_key', $trackingKeyInput) }}" placeholder="Kunci Pelacakan"
+            class="rounded-xl border border-gray-200 py-2 px-3" required>
+        <button class="h-11 rounded-xl bg-blue-600 text-white font-semibold">Cari</button>
     </form>
 
-    {{-- Display general messages --}}
     @if($displayMessage)
-    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md mt-4" role="alert">
-        <p>{{ $displayMessage }}</p>
+    <div class="mt-4 text-sm text-gray-600">{{ $displayMessage }}</div>
+    @endif
+
+    {{-- Hasil --}}
+    @if($searchPerformed && $orders->count())
+    <div class="mt-6 space-y-4">
+        @foreach($orders as $order)
+        @php
+        $isPending = $order->status === 'pending';
+        $snapToken = $snapTokens[$order->id] ?? null;
+        @endphp
+
+        <div class="rounded-2xl border border-gray-100 bg-white p-4">
+            {{-- Header order --}}
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div>
+                    <div class="font-medium">Order #{{ $order->id }}</div>
+                    <div class="text-sm text-gray-500">
+                        Status:
+                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold
+                @class([
+                  'bg-gray-100 text-gray-700' => $order->status === 'pending',
+                  'bg-green-100 text-green-700' => $order->status === 'paid',
+                  'bg-amber-100 text-amber-700' => $order->status === 'expired',
+                  'bg-red-100 text-red-600' => in_array($order->status, ['cancelled','denied']),
+                  'bg-gray-100 text-gray-700' => !in_array($order->status, ['pending','paid','expired','cancelled','denied']),
+                ])">
+                            {{ ucfirst($order->status) }}
+                        </span>
+                    </div>
+                    <div class="text-xs text-gray-400">Kunci: {{ $order->tracking_key }}</div>
+                    <div class="text-xs text-gray-400">Tanggal: {{ $order->created_at?->format('d M Y H:i') }}</div>
+                </div>
+                <div class="font-semibold text-right">Rp{{ number_format((float)$order->total_price, 0, ',', '.') }}
+                </div>
+            </div>
+
+            {{-- List item --}}
+            <div class="mt-3 divide-y divide-gray-100">
+                @foreach($order->items as $it)
+                @php
+                $img = $it->product_variant_id
+                ? variant_image_url($it->variant, $it->product->main_image ?? null)
+                : product_image_url($it->product ?? null);
+                @endphp
+                <div class="py-2 flex gap-3">
+                    <div class="h-14 w-14 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                        <img src="{{ $img }}" alt="{{ $it->product->name ?? 'Produk' }}"
+                            class="h-full w-full object-cover">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium truncate">
+                            {{ $it->product->name ?? 'Produk' }}
+                            @if($it->variant)
+                            — <span class="text-gray-600">{{ $it->variant->name }}</span>
+                            @endif
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            Rp{{ number_format((float)$it->price,0,',','.') }} × {{ (int)$it->quantity }}
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+
+            {{-- Aksi sesuai status --}}
+            <div class="mt-4">
+                @if($isPending && $snapToken)
+                <button class="rounded-xl bg-green-600 text-white px-4 py-2" data-pay="{{ $snapToken }}"
+                    data-order-id="{{ $order->id }}">
+                    Bayar Sekarang
+                </button>
+                @elseif($order->status === 'paid')
+                @if($order->magic_link_token)
+                <a href="{{ url('/magic-link/'.$order->magic_link_token) }}"
+                    class="rounded-xl bg-gray-900 text-white px-4 py-2 inline-block">Unduh Produk (Magic Link)</a>
+                @else
+                <div class="text-sm text-gray-600">Link unduhan belum tersedia. Hubungi admin.</div>
+                @endif
+                @else
+                <a href="{{ route('shop.thankyou', ['order_id' => $order->id]) }}"
+                    class="rounded-xl border px-4 py-2 inline-block">Lihat Detail</a>
+                @endif
+            </div>
+        </div>
+        @endforeach
     </div>
     @endif
 </div>
-
-@if($searchPerformed)
-<div class="w-full max-w-3xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Hasil Pencarian</h2>
-
-    @if($orders->isEmpty() && !$displayMessage)
-    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md" role="alert">
-        <p class="font-bold">Tidak Ditemukan</p>
-        <p>Tidak ada pesanan yang ditemukan dengan kriteria pencarian tersebut.</p>
-    </div>
-    @else
-    @foreach($orders as $order)
-    <div class="order-card {{ $order->status }}">
-        <h3 class="text-xl font-semibold text-gray-800 mb-2">
-            Pesanan #{{ $order->id }}
-            <span class="badge @if($order->status === 'pending') badge-gray
-                                            @elseif($order->status === 'paid') badge-green
-                                            @elseif($order->status === 'expired') badge-yellow
-                                            @elseif($order->status === 'cancelled' || $order->status === 'denied') badge-red
-                                            @else badge-gray @endif">
-                {{ ucfirst($order->status) }}
-            </span>
-        </h3>
-        <p class="text-gray-600 mb-1">Nama Pembeli: {{ $order->buyer_name }}</p>
-        <p class="text-gray-600 mb-1">Email: {{ $order->email }}</p>
-        <p class="text-gray-600 mb-1">Total Harga: Rp{{ number_format($order->total_price, 0, ',', '.') }}</p>
-        <p class="text-gray-600 mb-3">Tanggal Pesan: {{ $order->created_at->format('d M Y H:i') }}</p>
-
-        @if($order->status === 'pending')
-        <p class="text-blue-600 font-medium">Pesanan Anda masih menunggu pembayaran.</p>
-        @if(isset($snapTokens[$order->id]) && $snapTokens[$order->id])
-        <button type="button" class="button-primary mt-2"
-            onclick="payWithSnap('{{ $snapTokens[$order->id] }}', {{ $order->id }})">
-            Lanjutkan Pembayaran
-        </button>
-        @else
-        <p class="text-red-500 text-sm mt-2">Gagal memuat opsi pembayaran. Silakan coba lagi nanti.</p>
-        @endif
-        @elseif($order->status === 'paid')
-        <p class="text-green-600 font-medium">Pembayaran Anda telah berhasil!</p>
-        @if($order->magic_link_token)
-        <a href="{{ url('/magic-link/' . $order->magic_link_token) }}" class="link-style block mt-2">
-            Unduh Produk Anda (Magic Link)
-        </a>
-        @else
-        <p class="text-gray-600 text-sm mt-2">Link unduhan tidak tersedia. Silakan hubungi admin.</p>
-        @endif
-        <p class="text-gray-500 text-sm mt-2">Kunci Pelacakan: <span class="font-bold text-gray-700">{{
-                $order->tracking_key }}</span></p>
-        @else
-        <p class="text-gray-600 font-medium">Status pesanan: {{ ucfirst($order->status) }}.</p>
-        <a href="{{ url('/thank-you?order_id=' . $order->id) }}" class="link-style block mt-2">
-            Lihat Detail Pesanan
-        </a>
-        @endif
-    </div>
-    @endforeach
-    @endif
-</div>
-@endif
-
-{{-- Midtrans Snap JS --}}
-<script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js"
-    data-client-key="{{ config('services.midtrans.client_key') }}">
-</script>
-
-<script type="text/javascript">
-    function payWithSnap(snapToken, orderId) {
-        if (snapToken) {
-            window.snap.pay(snapToken, {
-                onSuccess: function(result){
-                    console.log('Payment success:', result);
-                    // Redirect ke halaman thank you setelah sukses
-                    window.location.href = "{{ url('/thank-you?order_id=') }}" + orderId;
-                },
-                onPending: function(result){
-                    console.log('Payment pending:', result);
-                    // Redirect ke halaman thank you (opsional, bisa ke halaman status pending)
-                    window.location.href = "{{ url('/thank-you?order_id=') }}" + orderId;
-                },
-                onError: function(result){
-                    console.log('Payment failed:', result);
-                    // Redirect ke halaman thank you (opsional, bisa ke halaman error)
-                    window.location.href = "{{ url('/thank-you?order_id=') }}" + orderId;
-                },
-                onClose: function(){
-                    console.log('Payment popup closed without finishing.');
-                    // PERBAIKAN: Jangan redirect ke halaman thank you.
-                    // Cukup refresh halaman untuk memperbarui status atau tetap di halaman ini.
-                    // window.location.reload(); // Refresh halaman
-                    // Atau, jika tidak ingin refresh, bisa tampilkan pesan di UI
-                    // alert('Anda menutup pop-up pembayaran tanpa menyelesaikan pembayaran.'); // Contoh
-                }
-            });
-        } else {
-            console.error('Snap Token tidak tersedia untuk Order ID:', orderId);
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const autoSnapOrderId = "{{ $autoSnapOrderId ?? '' }}";
-        if (autoSnapOrderId) {
-            const snapTokens = {!! json_encode($snapTokens) !!};
-            const targetSnapToken = snapTokens[autoSnapOrderId];
-
-            if (targetSnapToken) {
-                window.scrollTo(0, 0); // Scroll ke atas untuk memastikan pop-up terlihat
-                
-                setTimeout(() => {
-                    payWithSnap(targetSnapToken, autoSnapOrderId);
-                }, 500);
-            } else {
-                console.error('Snap Token tidak ditemukan untuk autoSnapOrderId:', autoSnapOrderId);
-            }
-        }
-    });
-</script>
 @endsection
+
+@push('scripts')
+
+<script>
+    // Bayar via Snap ketika klik tombol
+  document.querySelectorAll('[data-pay]')?.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const token = btn.getAttribute('data-pay');
+      const orderId = btn.getAttribute('data-order-id');
+      if (typeof window.snap === 'undefined') { alert('Snap belum dimuat.'); return; }
+      window.snap.pay(token, {
+        onSuccess:  () => window.location.reload(),
+        onPending:  () => window.location.reload(),
+        onError:    () => alert('Pembayaran gagal, coba lagi.'),
+        onClose:    () => {}
+      });
+    });
+  });
+
+  // Auto open Snap jika datang dari paymentLink (?auto_snap_order_id=)
+  (function() {
+    const autoSnapOrderId = @json($autoSnapOrderId ?? null);
+    const snapTokens = @json($snapTokens ?? []);
+    if (!autoSnapOrderId) return;
+
+    const token = snapTokens[autoSnapOrderId] || null;
+    if (!token) return;
+
+    // Pastikan Snap siap & popup terlihat
+    window.scrollTo(0, 0);
+    const open = () => {
+      if (typeof window.snap === 'undefined') { setTimeout(open, 300); return; }
+      window.snap.pay(token, {
+        onSuccess:  () => window.location.reload(),
+        onPending:  () => window.location.reload(),
+        onError:    () => alert('Pembayaran gagal, coba lagi.'),
+        onClose:    () => {}
+      });
+    };
+    setTimeout(open, 400);
+  })();
+</script>
+@endpush

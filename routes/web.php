@@ -10,16 +10,22 @@ Route::get('/', function () {
 });
 
 use App\Http\Controllers\ShopController;
-use App\Http\Controllers\ThankYouController;
 
 // Etalase Produk
 Route::get('/', [ShopController::class, 'index'])->name('shop.index');
 Route::get('/shop', [ShopController::class, 'index']); // Alias
 
+// Rute untuk detail produk
+// Route::get('/product/{slug}', [ShopController::class, 'show'])->name('shop.show'); // <<< Rute untuk detail produk dengan slug manual
+Route::get('/product/{product}', [ShopController::class, 'show'])->name('shop.show'); // <<< Rute untuk detail produk dengan slug otomatis
+// Route::get('/product/{product:slug}', [ShopController::class, 'show'])->name('shop.show');
+
+
+
 // Keranjang
 Route::post('/cart/add', [ShopController::class, 'addToCart'])->name('shop.addToCart');
 Route::get('/cart', [ShopController::class, 'viewCart'])->name('shop.cart');
-// Route::post('/cart/update', [ShopController::class, 'updateCart'])->name('shop.cart.update'); // Ini sepertinya tidak ada di ShopController yang sekarang, bisa dihapus jika tidak digunakan
+Route::post('/cart/update', [ShopController::class, 'updateCart'])->name('shop.cart.update'); // Ini sepertinya tidak ada di ShopController yang sekarang, bisa dihapus jika tidak digunakan
 
 // Voucher
 Route::post('/voucher/apply', [ShopController::class, 'applyVoucher'])->name('shop.applyVoucher'); // <<< Rute baru untuk menerapkan voucher

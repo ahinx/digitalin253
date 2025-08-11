@@ -26,7 +26,7 @@ return new class extends Migration {
             $table->string('name')->comment('Nama produk');
             $table->text('description')->nullable()->comment('Deskripsi produk');
             $table->enum('type', ['simple', 'variant'])->comment('Tipe produk: simple (tanpa varian), variant (dengan varian)');
-            $table->string('main_image')->nullable()->comment('Path gambar utama produk');
+            $table->json('main_image')->nullable()->comment('Path gambar utama produk');
             $table->decimal('price', 12, 0)->nullable()->comment('Harga produk (tanpa desimal)');
             $table->decimal('discount_price', 12, 0)->nullable()->comment('Harga diskon produk (tanpa desimal)');
 

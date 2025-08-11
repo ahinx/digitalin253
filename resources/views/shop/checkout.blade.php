@@ -25,11 +25,11 @@
     Bayar Sekarang
 </button>
 
-<!-- Midtrans Snap -->
-<script src="https://app.sandbox.midtrans.com/snap/snap.js"
-    data-client-key="{{ config('services.midtrans.client_key') }}"></script>
-<script type="text/javascript">
+
+@push('scripts')
+<script>
     document.getElementById('pay-button').addEventListener('click', function () {
-        snap.pay('{{ $snapToken }}');
-    });
+    window.startSnapPay(@json($snapToken), @json($order->id), @json(route('shop.thankyou')));
+  });
 </script>
+@endpush

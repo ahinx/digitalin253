@@ -16,6 +16,7 @@ use Filament\Actions\Action as HeaderAction;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ManageAppSettings extends Page
 {
@@ -63,7 +64,11 @@ class ManageAppSettings extends Page
                                 ->imageEditor()
                                 ->imageEditorAspectRatios([null, '16:9', '4:3', '1:1',])
                                 ->maxFiles(1)
-                                ->preserveFilenames(),
+                                ->preserveFilenames(false)
+                                ->saveUploadedFileUsing(
+                                    fn(TemporaryUploadedFile $file) =>
+                                    storeAsWebp($file, 'assetAplikasi')
+                                ),
                             FileUpload::make('app_image')
                                 ->label('Gambar Logo Halaman Utama')
                                 ->disk('public')
@@ -72,7 +77,10 @@ class ManageAppSettings extends Page
                                 ->imageEditor()
                                 ->imageEditorAspectRatios([null, '16:9', '4:3', '1:1',])
                                 ->maxFiles(1)
-                                ->preserveFilenames(),
+                                ->saveUploadedFileUsing(
+                                    fn(TemporaryUploadedFile $file) =>
+                                    storeAsWebp($file, 'assetAplikasi')
+                                ),
                         ])->columns(2),
 
 

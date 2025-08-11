@@ -16,9 +16,12 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ProductResource extends Resource
 {
@@ -51,15 +54,23 @@ class ProductResource extends Resource
 
                         FileUpload::make('main_image')
                             ->label('Gambar Utama')
-                            ->directory('products/images')
+                            ->disk('public')
                             ->image()
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                             ->imageEditor()
                             ->imageEditorAspectRatios([
                                 null,
                                 '16:9',
                                 '4:3',
                                 '1:1',
-                            ]),
+                            ])
+                            ->preserveFilenames(false)
+                            ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, Set $set) {
+                                $pair = storeAsWebpWithThumb($file, 'products/images');
+                                $set('main_image_thumb', $pair['thumb']);   // simpan thumb ke hidden field
+                                return $pair['large'];                      // WAJIB return string untuk FileUpload single
+                            }),
+                        Hidden::make('main_image_thumb'),
 
                         Textarea::make('description')
                             ->label('Deskripsi')
@@ -118,14 +129,23 @@ class ProductResource extends Resource
                                 TextInput::make('price')->numeric()->required(),
 
                                 FileUpload::make('image')
-                                    ->directory('products/variants')
+                                    ->label('Gambar Varian')
                                     ->image()
+                                    ->disk('public')
+                                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                                     ->imageEditor()
                                     ->imageEditorAspectRatios([
                                         null,
                                         '1:1',
                                         '4:3'
-                                    ]),
+                                    ])
+                                    ->saveUploadedFileUsing(function (TemporaryUploadedFile $file, Set $set) {
+                                        $pair = storeAsWebpWithThumb($file, 'products/variants');
+                                        $set('main_image_thumb', $pair['thumb']);   // simpan thumb ke hidden field
+                                        return $pair['large'];                      // WAJIB return string untuk FileUpload single
+                                    }),
+
+                                Hidden::make('main_image_thumb'),
 
                                 Radio::make('downloadable_type')
                                     ->options([

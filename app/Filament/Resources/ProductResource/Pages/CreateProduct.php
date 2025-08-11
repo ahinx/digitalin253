@@ -16,20 +16,20 @@ class CreateProduct extends CreateRecord
     {
         Log::info('Form data before create mutation:', $data);
 
-        // Jika file_path tidak ada, set null
-        if (($data['downloadable_type'] ?? null) !== 'file') {
-            $data['file_path'] = null;
+        if (! empty($data['main_image_upload'])) {
+            $data['main_image'] = [
+                'large' => $data['main_image_upload'],
+                'thumb' => $data['main_image_thumb'] ?? null,
+            ];
         }
-        if (($data['downloadable_type'] ?? null) !== 'link') {
-            $data['external_url'] = null;
-        }
-
+        unset($data['main_image_upload'], $data['main_image_thumb']);
         return $data;
     }
 
     protected function handleRecordCreation(array $data): Product
     {
         return DB::transaction(function () use ($data) {
+
             Log::info('Creating product with data:', $data);
 
             $product = Product::create([
